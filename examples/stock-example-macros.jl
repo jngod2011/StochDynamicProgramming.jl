@@ -36,7 +36,7 @@ m = SPModel("Linear");
 
 @setStochObjective(m, Min, sum{COSTS[i]*u[i], i = 1:N_STAGES-1})
 
-@addDynamic(m, x[i] + u[i] - xi[i])
+@addDynamic(m, x[i+1] = x[i] + u[i] - xi[i])
 
 @addConstraintsdp(m, x[1]==x0)
 

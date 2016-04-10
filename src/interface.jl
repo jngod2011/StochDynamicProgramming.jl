@@ -4,6 +4,8 @@ state_names = []
 control_names = []
 aleas_names = []
 
+dynamic_expressions = []
+
 function SPModel(str_type)
     if str_type == "Linear"
         return(LinearDynamicLinearCostSPmodel())
@@ -16,6 +18,7 @@ end
 
 macro addState(model, arg...)
     push!(state_names, arg[1].args[3].args[1]);
+    push!(dynamic_expressions, :empty)
     esc(quote
             push!($(model).xlim, ($(arg[1].args[1]),$(arg[1].args[5])));
             $(model).dimStates += 1;
@@ -41,7 +44,7 @@ macro addStochVariable(model, arg...)
 end
 
 macro setStochObjective(model, ope, arg...)
-    #TODO : almost everything, Max, finalCostFunction, prevent case where a variable name is at the end of another one...
+    #TODO : almost everything, Max, finalCostFunction, prevent case where a variable name is at the end of another one (regExp?)...
     #Better way to handle this part?
     if ope == :Min
         ind = find(arg[1].args .== :sum)[1]
@@ -71,9 +74,9 @@ macro setStochObjective(model, ope, arg...)
 end
 
 macro addDynamic(model, arg...)
-        #TODO : almost everything, Multidimensional case (more than 1 dynamic => we should not redefine the function)
-        #IMO Macros will be particularly relevent in this case
-        dynamicExpr = string(arg[1])
+        #TODO : test in the multidimensional case, test execution time
+        dynamicExpr = string(arg[1].args[2])
+
         for i in length(state_names)
             dynamicExpr = replace(dynamicExpr, string(string(state_names[i]),"[i]"),string("x"string([i])))
         end
@@ -84,15 +87,23 @@ macro addDynamic(model, arg...)
             dynamicExpr = replace(dynamicExpr, string(string(aleas_names[i]),"[i]"),string("w"string([i])))
         end
         dynamicExpr = parse(dynamicExpr)
-        esc(quote
-            function dyn_t(i,x,u,w)
-                return($dynamicExpr)
-            end
-            $(model).dynamics = dyn_t
-        end)
+        ind = find(state_names .== arg[1].args[1].args[1])[1]
+        dynamic_expressions[ind] = dynamicExpr
+
+        num_undefined_func = length(find(dynamic_expressions .== :empty ))
+
+        if num_undefined_func == 0
+            esc(quote
+                    function dyn_t(i,x,u,w)
+                        return([$(dynamic_expressions...)])
+                    end
+                    $(model).dynamics = dyn_t
+                end)
+        end
 end
 
 macro addConstraintsdp(model, arg...)
+        #TODO : Change bad name (conflict with JuMP)
         if (match(r"\[1]",string(arg[1])) == nothing)
             1+1
         else
@@ -103,7 +114,13 @@ macro addConstraintsdp(model, arg...)
         end
 end
 
+macro addCostFunction(model, arg...)
+    #For the piecewise case and maybe to replace setStochObjective or allow the user to choose
+end
+
 function solveInterface(model::SPModel, strSDP, strHD, stateDisc, controlDisc, solver)
+    #Currently works in one particular case exclusively
+    #Bad name but conflicts with the solve function of JuMP...
     if strSDP== "SDP"
         if strHD=="HD"
             paramSDP = SDPparameters(model, stateDisc, controlDisc, strHD)
