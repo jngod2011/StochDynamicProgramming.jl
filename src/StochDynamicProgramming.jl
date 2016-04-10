@@ -17,7 +17,9 @@ export solve_SDDP, NoiseLaw, simulate_scenarios,
         PiecewiseLinearCostSPmodel,
         PolyhedralFunction, NextStep, forward_simulations,
         StochDynProgModel, SDPparameters, sdp_optimize,
-        sdp_forward_simulation, sampling, get_control, get_value
+        sdp_forward_simulation, sampling, get_control, get_value, SPModel,
+        @setStochObjective, @addState, @addControl, @addStochVariable, @addDynamic,
+        @addConstraintsdp, solveInterface
 
 include("objects.jl")
 include("utils.jl")
@@ -27,4 +29,5 @@ include("noises.jl")
 include("SDDPoptimize.jl")
 include("extensiveFormulation.jl")
 include("SDPoptimize.jl")
+include("interface.jl")
 end

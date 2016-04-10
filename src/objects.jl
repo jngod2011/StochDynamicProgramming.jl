@@ -40,6 +40,15 @@ type LinearDynamicLinearCostSPmodel <: SPModel
 
         return new(nstage, dimControls, dimStates, dimNoises, xbounds, ubounds, x0, cost, dynamic, aleas)
     end
+
+    function LinearDynamicLinearCostSPmodel()
+
+        function emptyfunc
+        end
+
+        return new(0, 0, 0, 0, [], [], [], emptyfunc, emptyfunc, [])
+    end
+
 end
 
 
@@ -70,6 +79,12 @@ type PiecewiseLinearCostSPmodel <: SPModel
             push!(xbounds, (-Inf, Inf))
         end
         return new(nstage, dimControls, dimStates, dimNoises, xbounds, ubounds, x0, costs, dynamic, aleas)
+    end
+
+    function PiecewiseLinearCostSPmodel()
+        function emptyfunc
+        end
+        return new(0, 0, 0, 0, [], [], [], [], emptyfunc, [])
     end
 end
 
@@ -130,6 +145,15 @@ type StochDynProgModel <: SPModel
         return new(TF, length(u_bounds), length(x_bounds), length(aleas[1].support[:, 1]),
                     x_bounds, u_bounds, x0, cost_t, finalCostFunction, dynamic,
                     constraints, aleas)
+    end
+
+    function StochDynProgModel()
+        function emptyfunc
+        end
+
+        return new(0, 0, 0, 0,
+                    [], [], [], emptyfunc, emptyfunc, emptyfunc,
+                    emptyfunc, [])
     end
 
     # TODO: add this attributes to model
