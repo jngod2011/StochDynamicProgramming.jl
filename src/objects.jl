@@ -27,6 +27,12 @@ type LinearDynamicLinearCostSPmodel <: SPModel
     dynamics::Function
     noises::Vector{NoiseLaw}
 
+    #Structures needed for the interface
+    state_names::Array
+    control_names::Array
+    aleas_names::Array
+    dynamic_expressions::Array
+
     function LinearDynamicLinearCostSPmodel(nstage, ubounds, x0, cost, dynamic, aleas)
 
         dimStates = length(x0)
@@ -38,7 +44,8 @@ type LinearDynamicLinearCostSPmodel <: SPModel
             push!(xbounds, (-Inf, Inf))
         end
 
-        return new(nstage, dimControls, dimStates, dimNoises, xbounds, ubounds, x0, cost, dynamic, aleas)
+        return new(nstage, dimControls, dimStates, dimNoises, xbounds, ubounds,
+                    x0, cost, dynamic, aleas, [], [], [], [])
     end
 
     function LinearDynamicLinearCostSPmodel()
@@ -46,7 +53,8 @@ type LinearDynamicLinearCostSPmodel <: SPModel
         function emptyfunc
         end
 
-        return new(0, 0, 0, 0, [], [], [], emptyfunc, emptyfunc, [])
+        return new(0, 0, 0, 0, [], [], [], emptyfunc, emptyfunc, [],
+                    [], [], [], [])
     end
 
 end
@@ -69,6 +77,12 @@ type PiecewiseLinearCostSPmodel <: SPModel
     dynamics::Function
     noises::Vector{NoiseLaw}
 
+    #Structures needed for the interface
+    state_names::Array
+    control_names::Array
+    aleas_names::Array
+    dynamic_expressions::Array
+
     function PiecewiseLinearCostSPmodel(nstage, ubounds, x0, costs, dynamic, aleas)
         dimStates = length(x0)
         dimControls = length(ubounds)
@@ -78,13 +92,14 @@ type PiecewiseLinearCostSPmodel <: SPModel
         for i = 1:dimStates
             push!(xbounds, (-Inf, Inf))
         end
-        return new(nstage, dimControls, dimStates, dimNoises, xbounds, ubounds, x0, costs, dynamic, aleas)
+        return new(nstage, dimControls, dimStates, dimNoises, xbounds, ubounds,
+                    x0, costs, dynamic, aleas, [], [], [], [])
     end
 
     function PiecewiseLinearCostSPmodel()
         function emptyfunc
         end
-        return new(0, 0, 0, 0, [], [], [], [], emptyfunc, [])
+        return new(0, 0, 0, 0, [], [], [], [], emptyfunc, [], [], [], [], [])
     end
 end
 
@@ -117,6 +132,12 @@ type StochDynProgModel <: SPModel
     constraints::Function
     noises::Vector{NoiseLaw}
 
+    #Structures needed for the interface
+    state_names::Array
+    control_names::Array
+    aleas_names::Array
+    dynamic_expressions::Array
+
     function StochDynProgModel(model::LinearDynamicLinearCostSPmodel, final, cons)
         return StochDynProgModel(model.stageNumber, model.xlim, model.ulim, model.initialState,
                  model.costFunctions, final, model.dynamics, cons,
@@ -127,8 +148,8 @@ type StochDynProgModel <: SPModel
         function cost(t,x,u,w)
             saved_cost = -Inf
             current_cost = 0
-            for i in model.costFunctions
-                current_cost = i(t,x,u,w)
+            for f in model.costFunctions
+                current_cost = f(t,x,u,w)
                 if (current_cost>saved_cost)
                     saved_cost = current_cost
                 end
@@ -144,7 +165,7 @@ type StochDynProgModel <: SPModel
                                 finalCostFunction, dynamic, constraints, aleas)
         return new(TF, length(u_bounds), length(x_bounds), length(aleas[1].support[:, 1]),
                     x_bounds, u_bounds, x0, cost_t, finalCostFunction, dynamic,
-                    constraints, aleas)
+                    constraints, aleas, [], [], [], [])
     end
 
     function StochDynProgModel()
@@ -153,7 +174,7 @@ type StochDynProgModel <: SPModel
 
         return new(0, 0, 0, 0,
                     [], [], [], emptyfunc, emptyfunc, emptyfunc,
-                    emptyfunc, [])
+                    emptyfunc, [], [], [], [], [])
     end
 
     # TODO: add this attributes to model
@@ -178,15 +199,15 @@ end
 
 
 type SDPparameters
-    stateSteps
-    controlSteps
-    totalStateSpaceSize
-    totalControlSpaceSize
-    stateVariablesSizes
-    controlVariablesSizes
-    monteCarloSize
-    infoStructure
-    expectation_computation
+    stateSteps::Array{Float64, 1}
+    controlSteps::Array{Float64, 1}
+    totalStateSpaceSize::Int64
+    totalControlSpaceSize::Int64
+    stateVariablesSizes::Array{Int64, 1}
+    controlVariablesSizes::Array{Int64, 1}
+    monteCarloSize::Int64
+    infoStructure::ASCIIString
+    expectation_computation::ASCIIString
 
     function SDPparameters(model, stateSteps, controlSteps, infoStruct,
                             expectation_computation="Exact" ,monteCarloSize=1000)

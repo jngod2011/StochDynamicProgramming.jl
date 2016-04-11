@@ -32,7 +32,7 @@ m = SPModel("Linear");
 
 @addControl(m, 0 <= u[1:N_STAGES-1] <= 0.5)
 
-@addStochVariable(m, xi)
+@addNoise(m, xi)
 
 @setStochObjective(m, Min, sum{COSTS[i]*u[i], i = 1:N_STAGES-1})
 

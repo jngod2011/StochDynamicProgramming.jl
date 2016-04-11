@@ -1,11 +1,5 @@
 using Base.Meta
 
-state_names = []
-control_names = []
-aleas_names = []
-
-dynamic_expressions = []
-
 function SPModel(str_type)
     if str_type == "Linear"
         return(LinearDynamicLinearCostSPmodel())
@@ -17,9 +11,10 @@ function SPModel(str_type)
 end
 
 macro addState(model, arg...)
-    push!(state_names, arg[1].args[3].args[1]);
-    push!(dynamic_expressions, :empty)
+    state_name = string(arg[1].args[3].args[1])
     esc(quote
+            push!($(model).state_names, $state_name);
+            push!($(model).dynamic_expressions, "empty")
             push!($(model).xlim, ($(arg[1].args[1]),$(arg[1].args[5])));
             $(model).dimStates += 1;
             $(model).stageNumber = $(arg[1].args[3].args[2].args[2]);
@@ -27,17 +22,19 @@ macro addState(model, arg...)
 end
 
 macro addControl(model, arg...)
-    push!(control_names, arg[1].args[3].args[1]);
+    control_name = string(arg[1].args[3].args[1])
     esc(quote
+            push!($(model).control_names, $control_name);
             push!($(model).ulim, ($(arg[1].args[1]),$(arg[1].args[5])));
             $(model).dimControls += 1;
         end)
 end
 
-macro addStochVariable(model, arg...)
+macro addNoise(model, arg...)
     #TODO : Multidimensional case!!!
-    push!(aleas_names, arg[1]);
+    aleas_name = string(arg[1])
     esc(quote
+            push!($(model).aleas_names, $(aleas_name));
             $(model).noises = NoiseLaw[NoiseLaw($(arg[1])[t][2,:], $(arg[1])[t][1,:]) for t in 1:N_STAGES-1];
             $(model).dimNoises += 1;
         end)
@@ -48,23 +45,25 @@ macro setStochObjective(model, ope, arg...)
     #Better way to handle this part?
     if ope == :Min
         ind = find(arg[1].args .== :sum)[1]
-        costExpr = string(arg[1].args[ind+1])
-        for i in length(state_names)
-            costExpr = replace(costExpr, string(string(state_names[i]),"[i]"),string("x"string([i])))
-        end
-        for i in length(control_names)
-            costExpr = replace(costExpr, string(string(control_names[i]),"[i]"),string("u"string([i])))
-        end
-        for i in length(aleas_names)
-            costExpr = replace(costExpr, string(string(aleas_names[i]),"[i]"),string("w"string([i])))
-        end
-        costExpr = parse(costExpr)
+        costExpression = string(arg[1].args[ind+1])
         esc(quote
-            function cost_t(i,x,u,w)
-                return($costExpr)
-            end
-            $(model).costFunctions = cost_t
-        end)
+                costString = $(costExpression)
+                for i in length($(model).state_names)
+                    costString = replace(costString, string($(model).state_names[i],"[i]"),string("x"string([i])))
+                end
+                for i in length($(model).control_names)
+                    costString = replace(costString, string($(model).control_names[i],"[i]"),string("u"string([i])))
+                end
+                for i in length($(model).aleas_names)
+                    costString = replace(costString, string($(model).aleas_names[i],"[i]"),string("w"string([i])))
+                end
+                expr =  quote
+                            function cost_t(i,x,u,w)
+                                return($(parse(costString)))
+                            end
+                        end
+                $(model).costFunctions = eval(expr)
+            end)
 
     elseif ope == :Max
 
@@ -75,31 +74,39 @@ end
 
 macro addDynamic(model, arg...)
         #TODO : test in the multidimensional case, test execution time
-        dynamicExpr = string(arg[1].args[2])
+        state_name = string(arg[1].args[1].args[1])
+        dynamicExpression = string(arg[1].args[2])
 
-        for i in length(state_names)
-            dynamicExpr = replace(dynamicExpr, string(string(state_names[i]),"[i]"),string("x"string([i])))
-        end
-        for i in length(control_names)
-            dynamicExpr = replace(dynamicExpr, string(string(control_names[i]),"[i]"),string("u"string([i])))
-        end
-        for i in length(aleas_names)
-            dynamicExpr = replace(dynamicExpr, string(string(aleas_names[i]),"[i]"),string("w"string([i])))
-        end
-        dynamicExpr = parse(dynamicExpr)
-        ind = find(state_names .== arg[1].args[1].args[1])[1]
-        dynamic_expressions[ind] = dynamicExpr
-
-        num_undefined_func = length(find(dynamic_expressions .== :empty ))
-
-        if num_undefined_func == 0
             esc(quote
-                    function dyn_t(i,x,u,w)
-                        return([$(dynamic_expressions...)])
+                    ind_dyn = find($(model).state_names .== string($(state_name)))[1]
+                    dynamicString = $(dynamicExpression)
+                    for i in length($(model).state_names)
+                        dynamicString = replace(dynamicString, string($(model).state_names[i],"[i]"),string("x"string([i])))
                     end
-                    $(model).dynamics = dyn_t
+                    for i in length($(model).control_names)
+                        dynamicString = replace(dynamicString, string($(model).control_names[i],"[i]"),string("u"string([i])))
+                    end
+                    for i in length($(model).aleas_names)
+                        dynamicString = replace(dynamicString, string($(model).aleas_names[i],"[i]"),string("w"string([i])))
+                    end
+                    dynamicString = parse(dynamicString)
+
+                    $(model).dynamic_expressions[ind_dyn] = dynamicString
+
+                    num_undefined_func = length(find($(model).dynamic_expressions .== "empty" ))
+
+                    if num_undefined_func == 0
+
+                        expr_tab = $(model).dynamic_expressions
+
+                        expr =  quote
+                                    function dyn_t(i,x,u,w)
+                                        return([$(expr_tab...)])
+                                    end
+                                end
+                        $(model).dynamics = eval(expr)
+                    end
                 end)
-        end
 end
 
 macro addConstraintsdp(model, arg...)

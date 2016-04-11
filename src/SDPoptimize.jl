@@ -149,6 +149,7 @@ function build_sdpmodel_from_spmodel(model::SPModel)
         if in(:finalCostFunction,fieldnames(model))
             SDPmodel = StochDynProgModel(model, model.finalCostFunction, cons_fun)
         else
+            println(typeof(model))
             SDPmodel = StochDynProgModel(model, zero_fun, cons_fun)
         end
     elseif isa(model,StochDynProgModel)
