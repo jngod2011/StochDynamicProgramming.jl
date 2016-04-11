@@ -125,15 +125,20 @@ macro addCostFunction(model, arg...)
     #For the piecewise case and maybe to replace setStochObjective or allow the user to choose
 end
 
-function solveInterface(model::SPModel, strSDP, strHD, stateDisc, controlDisc, solver)
+function solveInterface(model::SPModel, strSDP, arg...)
     #Currently works in one particular case exclusively
     #Bad name but conflicts with the solve function of JuMP...
     if strSDP== "SDP"
-        if strHD=="HD"
-            paramSDP = SDPparameters(model, stateDisc, controlDisc, strHD)
+        if arg[1]=="HD"
+            paramSDP = SDPparameters(model, arg[2], arg[2], arg[1])
             Vs = sdp_optimize(model,paramSDP)
             lb_sdp = get_value(model,paramSDP,Vs)
             println("Value obtained by SDP: "*string(lb_sdp))
         end
+    elseif strSDP=="SDDP"
+        paramSDDP = SDDPparameters(arg...) # 10 forward pass, stop at MAX_ITER
+        V, pbs = solve_SDDP(model, paramSDDP, 10) # display information every 10 iterations
+        lb_sddp = StochDynamicProgramming.get_lower_bound(model, paramSDDP, V)
+        println("Lower bound obtained by SDDP: "*string(lb_sddp))
     end
 end

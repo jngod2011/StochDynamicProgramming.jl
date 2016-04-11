@@ -19,6 +19,9 @@ const N_XI = 10
 const N_STAGES = 5
 const COSTS = rand(N_STAGES)
 const x0 = 0.5
+const MAX_ITER = 100 # maximum iteration of SDDP
+const SENSIBILITY = 0
+const FORWARD_PASS_NUMBER = 2 # maximum iteration of SDDP
 
 proba = 1/N_XI*ones(N_XI) # uniform probabilities
 xi_support = collect(linspace(XI_MIN,XI_MAX,N_XI))
@@ -40,6 +43,10 @@ m = SPModel("Linear");
 
 @addConstraintsdp(m, x[1]==x0)
 
-solveInterface(m, "SDP", "HD", [0.1], [0.1], solver)
+solveInterface(m, "SDDP", solver, FORWARD_PASS_NUMBER, SENSIBILITY, MAX_ITER)
+
+solveInterface(m, "SDP", "HD", [0.01], [0.01])
+
+
 
 
