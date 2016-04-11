@@ -12,32 +12,34 @@ end
 
 macro addState(model, arg...)
     state_name = string(arg[1].args[3].args[1])
-    esc(quote
-            push!($(model).state_names, $state_name);
-            push!($(model).dynamic_expressions, "empty")
-            push!($(model).xlim, ($(arg[1].args[1]),$(arg[1].args[5])));
-            $(model).dimStates += 1;
-            $(model).stageNumber = $(arg[1].args[3].args[2].args[2]);
-        end)
+    n_stages = arg[1].args[3].args[2].args[2]
+    quote
+        push!($(esc(model)).state_names, $state_name);
+        push!($(esc(model)).dynamic_expressions, "empty")
+        push!($(esc(model)).xlim, ($(arg[1].args[1]),$(arg[1].args[5])));
+        $(esc(model)).dimStates += 1;
+        $(esc(model)).stageNumber = $(esc(n_stages));
+    end
 end
 
 macro addControl(model, arg...)
     control_name = string(arg[1].args[3].args[1])
-    esc(quote
-            push!($(model).control_names, $control_name);
-            push!($(model).ulim, ($(arg[1].args[1]),$(arg[1].args[5])));
-            $(model).dimControls += 1;
-        end)
+    quote
+        push!($(esc(model)).control_names, $control_name);
+        push!($(esc(model)).ulim, ($(arg[1].args[1]),$(arg[1].args[5])));
+        $(esc(model)).dimControls += 1;
+    end
 end
 
 macro addNoise(model, arg...)
     #TODO : Multidimensional case!!!
     aleas_name = string(arg[1])
-    esc(quote
-            push!($(model).aleas_names, $(aleas_name));
-            $(model).noises = NoiseLaw[NoiseLaw($(arg[1])[t][2,:], $(arg[1])[t][1,:]) for t in 1:N_STAGES-1];
-            $(model).dimNoises += 1;
-        end)
+    alea = arg[1]
+    quote
+        push!($(esc(model)).aleas_names, $(aleas_name));
+        $(esc(model)).noises = NoiseLaw[NoiseLaw($(esc(alea))[t][2,:], $(esc(alea))[t][1,:]) for t in 1:$(esc(model)).stageNumber-1];
+        $(esc(model)).dimNoises += 1;
+    end
 end
 
 macro setStochObjective(model, ope, arg...)
@@ -63,6 +65,8 @@ macro setStochObjective(model, ope, arg...)
                             end
                         end
                 $(model).costFunctions = eval(expr)
+                expr = 0;
+                costString = 0;
             end)
 
     elseif ope == :Max
@@ -106,6 +110,11 @@ macro addDynamic(model, arg...)
                                 end
                         $(model).dynamics = eval(expr)
                     end
+
+                    ind_dyn = 0;
+                    dynamicString = 0;
+                    num_undefined_func = 0;
+                    expr = 0;
                 end)
 end
 
@@ -121,7 +130,11 @@ macro addConstraintsdp(model, arg...)
         end
 end
 
-macro addCostFunction(model, arg...)
+macro addCost(model, arg...)
+    #For the piecewise case and maybe to replace setStochObjective or allow the user to choose
+end
+
+macro setRiskMeasure(model, arg...)
     #For the piecewise case and maybe to replace setStochObjective or allow the user to choose
 end
 
