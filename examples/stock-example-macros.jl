@@ -36,10 +36,12 @@ m = SPModel("Linear");
 @addControl(m, 0 <= u[1:N_STAGES-1] <= 0.5)
 
 @addNoise(m, xi)
+
 @setStochObjective(m, Min, sum{COSTS[i]*u[i], i = 1:N_STAGES-1})
+
 @addDynamic(m, x[i+1] = x[i] + u[i] - xi[i])
 
-@addConstraintsdp(m, x[1]==x0)
+@addDPConstraint(m, x[1]==x0)
 
 solveInterface(m, "SDDP", solver, FORWARD_PASS_NUMBER, SENSIBILITY, MAX_ITER)
 
