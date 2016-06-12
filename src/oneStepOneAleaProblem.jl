@@ -59,11 +59,9 @@ function solve_one_step_one_alea(model,
                                  init=false::Bool)
     # Get var defined in JuMP.model:
     u = getvariable(m, :u)
-    w = getvariable(m, :w)
+    x = getvariable(m, :x)
+    xf = getvariable(m, :xf)
     alpha = getvariable(m, :alpha)
-
-    # Update value of w:
-    setvalue(w, xi)
 
     # If this is the first call to the solver, value-to-go are approximated
     # with null function:
@@ -75,6 +73,26 @@ function solve_one_step_one_alea(model,
         JuMP.setRHS(m.ext[:cons][i], xt[i])
     end
 
+    for i in 1:model.dimNoises
+        JuMP.setRHS(m.ext[:dyn_act_pos][i], 1e20)
+        JuMP.setRHS(m.ext[:dyn_act_neg][i], 1e20)
+    end
+
+    m.ext[:dyn_act_pos] = @constraint(m, model.dynamics(t, x, u, xi) - xf .<= 0)
+    m.ext[:dyn_act_neg] = @constraint(m, xf - model.dynamics(t, x, u, xi) .<= 0)
+
+    if typeof(model) == LinearDynamicLinearCostSPmodel
+        @objective(m, Min, model.costFunctions(t, x, u, xi) + alpha)
+
+    elseif typeof(model) == PiecewiseLinearCostSPmodel
+
+      for i in 1:length(model.costFunctions)
+          JuMP.setRHS(m.ext[:piece][i], 1e20)
+      end
+
+      m.ext[:piece] = @constraint(m, [model.costFunctions[i](t, x, u, xi)-cost for i in 1:length(model.costFunctions)] <= 0)
+
+    end
 
     status = solve(m)
 

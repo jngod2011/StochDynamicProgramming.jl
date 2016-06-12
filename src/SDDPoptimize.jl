@@ -113,7 +113,7 @@ function run_SDDP!(model::SPModel,
     end
 
     # Estimate upper bound with a great number of simulations:
-    if (display>0)
+    if (display<0)
         upb = upper_bound(costs)
         V0 = get_bellman_value(model, param, 1, V[1], model.initialState)
 
@@ -203,8 +203,8 @@ function build_terminal_cost!(model::SPModel, problem::JuMP.Model, Vt::Polyhedra
     alpha = getvariable(problem, :alpha)
     x = getvariable(problem, :x)
     u = getvariable(problem, :u)
-    w = getvariable(problem, :w)
     t = model.stageNumber -1
+    w = zeros(model.dimNoises)
     if isa(Vt, PolyhedralFunction)
         for i in 1:Vt.numCuts
             lambda = vec(Vt.lambdas[i, :])
@@ -252,10 +252,11 @@ function build_models(model::SPModel, param::SDDPparameters)
         @variable(m,  model.xlim[i][1] <= xf[i=1:nx]<= model.xlim[i][2])
         @variable(m, alpha)
 
-        @variable(m, w[1:nw] == 0)
         m.ext[:cons] = @constraint(m, state_constraint, x .== 0)
+        w = zeros(nw)
 
-        @constraint(m, xf .== model.dynamics(t, x, u, w))
+        m.ext[:dyn_act_pos] = @constraint(m, model.dynamics(t, x, u, w) - xf .<= 0)
+        m.ext[:dyn_act_neg] = @constraint(m, xf - model.dynamics(t, x, u, w) .<= 0)
 
         if typeof(model) == LinearDynamicLinearCostSPmodel
             @objective(m, Min, model.costFunctions(t, x, u, w) + alpha)
@@ -263,10 +264,9 @@ function build_models(model::SPModel, param::SDDPparameters)
         elseif typeof(model) == PiecewiseLinearCostSPmodel
             @variable(m, cost)
 
-            for i in 1:length(model.costFunctions)
-                @constraint(m, cost >= model.costFunctions[i](t, x, u, w))
-            end
             @objective(m, Min, cost + alpha)
+
+            m.ext[:piece] = @constraint(m, [model.costFunctions[i](t, x, u, w)-cost for i in 1:length(model.costFunctions)] <= 0)
         end
 
         models[t] = m
@@ -487,11 +487,11 @@ function add_cuts_to_model!(model::SPModel, t::Int64, problem::JuMP.Model, V::Po
     alpha = getvariable(problem, :alpha)
     x = getvariable(problem, :x)
     u = getvariable(problem, :u)
-    w = getvariable(problem, :w)
+    xf = getvariable(problem, :xf)
 
     for i in 1:V.numCuts
         lambda = vec(V.lambdas[i, :])
-        @constraint(problem, V.betas[i] + dot(lambda, model.dynamics(t, x, u, w)) <= alpha)
+        @constraint(problem, V.betas[i] + dot(lambda, xf) <= alpha)
     end
 end
 
