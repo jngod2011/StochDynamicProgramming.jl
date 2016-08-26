@@ -268,16 +268,23 @@ function build_model(model, param, t)
     @variable(m,  model.xlim[i][1] <= xf[i=1:nx]<= model.xlim[i][2])
     @variable(m, alpha)
 
-    @variable(m, w[1:nw] == 0)
     m.ext[:cons] = @constraint(m, state_constraint, x .== 0)
 
-    @constraint(m, xf .== model.dynamics(t, x, u, w))
+    for w in model.noises.support
+        m.ext[:dyn] = merge(m.ext[:dyn], w => [@constraint(m, xf .- model.dynamics(t, x, u, w)) .<= Inf,
+                                                 @constraint(m, xf .- model.dynamics(t, x, u, w)) .>= -Inf])
+    end
 
     if model.equalityConstraints != nothing
-        @constraint(m, model.equalityConstraints(t, x, u, w) .== 0)
+        for w in model.noises.support
+            m.ext[:eqcons] = merge(m.ext[:eqcons], w => [@constraint(m, model.equalityConstraints(t, x, u, w) .<= Inf),
+                                                         model.equalityConstraints(t, x, u, w) .>= -Inf)])
+        end
     end
     if model.inequalityConstraints != nothing
-        @constraint(m, model.inequalityConstraints(t, x, u, w) .<= 0)
+        for w in model.noises.support
+            m.ext[:ineqcons] = merge(m.ext[:ineqcons], w => @constraint(m, model.inequalityConstraints(t, x, u, w) .<= 0))
+        end
     end
 
     if typeof(model) == LinearDynamicLinearCostSPmodel
