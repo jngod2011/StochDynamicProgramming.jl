@@ -270,31 +270,39 @@ function build_model(model, param, t)
 
     m.ext[:cons] = @constraint(m, state_constraint, x .== 0)
 
-    for w in model.noises.support
-        m.ext[:dyn] = merge(m.ext[:dyn], w => [@constraint(m, xf .- model.dynamics(t, x, u, w)) .<= Inf,
-                                                 @constraint(m, xf .- model.dynamics(t, x, u, w)) .>= -Inf])
+    m.ext[:dyn] = Dict()
+    for iw in 1:model.noises[t].supportSize
+        w = model.noises[t].support[:,iw]
+        tab = [@constraint(m, xf - model.dynamics(t, x, u, w) .<= our_infinity); @constraint(m, xf - model.dynamics(t, x, u, w) .>= 0)]
+        normal_rhs = tab[2].m.linconstr[tab[2].idx].lb
+        JuMP.setRHS(tab[2], -our_infinity)
+        m.ext[:dyn] = merge(m.ext[:dyn], Dict( w => (tab, normal_rhs)))
     end
 
     if model.equalityConstraints != nothing
-        for w in model.noises.support
-            m.ext[:eqcons] = merge(m.ext[:eqcons], w => [@constraint(m, model.equalityConstraints(t, x, u, w) .<= Inf),
-                                                         model.equalityConstraints(t, x, u, w) .>= -Inf)])
+        m.ext[:eqcons] = Dict()
+        for iw in 1:model.noises[t].supportSize
+            w = model.noises[t].support[:,iw]
+            m.ext[:eqcons] = merge(m.ext[:eqcons], Dict(w => [@constraint(m, model.equalityConstraints(t, x, u, w) .<= our_infinity),
+                                                         @constraint(m, model.equalityConstraints(t, x, u, w) .>= -our_infinity)]))
         end
     end
     if model.inequalityConstraints != nothing
-        for w in model.noises.support
-            m.ext[:ineqcons] = merge(m.ext[:ineqcons], w => @constraint(m, model.inequalityConstraints(t, x, u, w) .<= 0))
+        m.ext[:ineqcons] = Dict()
+        for iw in 1:model.noises[t].supportSize
+            w = model.noises[t].support[:,iw]
+            m.ext[:ineqcons] = merge(m.ext[:ineqcons], Dict(w => @constraint(m, model.inequalityConstraints(t, x, u, w) .<= our_infinity)))
         end
     end
 
     if typeof(model) == LinearDynamicLinearCostSPmodel
-        @objective(m, Min, model.costFunctions(t, x, u, w) + alpha)
+        @objective(m, Min, model.costFunctions(t, x, u, zeros(nw)) + alpha)
 
     elseif typeof(model) == PiecewiseLinearCostSPmodel
         @variable(m, cost)
 
         for i in 1:length(model.costFunctions)
-            @constraint(m, cost >= model.costFunctions[i](t, x, u, w))
+            @constraint(m, cost >= model.costFunctions[i](t, x, u, zeros(nw)))
         end
         @objective(m, Min, cost + alpha)
     end

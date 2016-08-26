@@ -50,15 +50,31 @@ function solve_one_step_one_alea(model,
                                  init=false::Bool)
     # Get var defined in JuMP.model:
     u = getvariable(m, :u)
-    w = getvariable(m, :w)
+    x = getvariable(m, :x)
     alpha = getvariable(m, :alpha)
 
     # Update value of w:
-    setvalue(w, xi)
+    JuMP.setRHS(m.ext[:dyn][xi][1][1], m.ext[:dyn][xi][2])
+    JuMP.setRHS(m.ext[:dyn][xi][1][2], m.ext[:dyn][xi][2])
+
+    if model.equalityConstraints != nothing
+        JuMP.setRHS(m.ext[:eqcons][xi][1], 0)
+        JuMP.setRHS(m.ext[:eqcons][xi][2], 0)
+    end
+    if model.inequalityConstraints != nothing
+        JuMP.setRHS(m.ext[:ineqcons][xi], 0)
+    end
 
     # Update constraint x == xt
     for i in 1:model.dimStates
         JuMP.setRHS(m.ext[:cons][i], xt[i])
+    end
+
+    if typeof(model) == LinearDynamicLinearCostSPmodel
+        @objective(m, Min, model.costFunctions(t, x, u, xi) + alpha)
+
+    elseif typeof(model) == PiecewiseLinearCostSPmodel
+        println("not implemented")
     end
 
     status = solve(m)
@@ -75,7 +91,20 @@ function solve_one_step_one_alea(model,
                           getvalue(alpha))
     else
         # If no solution is found, then return nothing
+        println(m)
+        sleep(100000)
         result = nothing
+    end
+
+    JuMP.setRHS(m.ext[:dyn][xi][1][1], our_infinity)
+    JuMP.setRHS(m.ext[:dyn][xi][1][2], -our_infinity)
+
+    if model.equalityConstraints != nothing
+        JuMP.setRHS(m.ext[:eqcons][xi][1], Inf)
+        JuMP.setRHS(m.ext[:eqcons][xi][2], -Inf)
+    end
+    if model.inequalityConstraints != nothing
+        JuMP.setRHS(m.ext[:ineqcons][xi], Inf)
     end
 
     return solved, result

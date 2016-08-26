@@ -27,7 +27,7 @@ const SOLVER = ClpSolver()
 const MAX_ITER = 10 # number of iterations of SDDP
 
 ######## Stochastic Model  Parameters  ########
-const N_STAGES = 6              # number of stages of the SP problem
+const N_STAGES = 600              # number of stages of the SP problem
 const COSTS = rand(N_STAGES)    # generating deterministic costs
 
 const CONTROL_MAX = 0.5         # bounds on the control
@@ -47,7 +47,7 @@ xi_laws = NoiseLaw[xi_law for t in 1:N_STAGES-1]
 
 # Define dynamic of the stock:
 function dynamic(t, x, u, xi)
-    return [x[1] + u[1] - xi[1]]
+    return [x[1]+u[1]-xi[1]]
 end
 
 # Define cost corresponding to each timestep:
@@ -66,7 +66,7 @@ println("Model set up")
 if run_sddp
     println("Starting resolution by SDDP")
     paramSDDP = SDDPparameters(SOLVER, 10, 0, MAX_ITER) # 10 forward pass, stop at MAX_ITER
-    V, pbs = solve_SDDP(spmodel, paramSDDP, 2) # display information every 2 iterations
+    @time V, pbs = solve_SDDP(spmodel, paramSDDP, 2) # display information every 2 iterations
     lb_sddp = StochDynamicProgramming.get_lower_bound(spmodel, paramSDDP, V)
     println("Lower bound obtained by SDDP: "*string(round(lb_sddp,4)))
 end

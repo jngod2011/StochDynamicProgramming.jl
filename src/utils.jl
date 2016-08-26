@@ -7,6 +7,7 @@
 #
 #############################################################################
 
+our_infinity = 1e16
 
 """
 Dump Polyhedral functions in a text file.
