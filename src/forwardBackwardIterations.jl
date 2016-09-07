@@ -56,14 +56,14 @@ function forward_simulations(model::SPModel,
         end
      end
 
-    stocks = zeros(T, nb_forward, model.dimStates)
+    stocks = zeros(T, nb_forward, model.dimStates+1)
     # We got T - 1 control, as terminal state is included into the total number
     # of stages.
     controls = zeros(T - 1, nb_forward, model.dimControls)
 
     # Set first value of stocks equal to x0:
     for k in 1:nb_forward
-        stocks[1, k, :] = model.initialState
+        stocks[1, k, :] = [model.initialState;0]
     end
 
     # Store costs of different scenarios in an array:
@@ -124,7 +124,7 @@ Add to polyhedral function a cut with shape Vt >= beta + <lambda,.>
 function add_cut!(model::SPModel,
     t::Int64, Vt::PolyhedralFunction,
     beta::Float64, lambda::Vector{Float64})
-    Vt.lambdas = vcat(Vt.lambdas, reshape(lambda, 1, model.dimStates))
+    Vt.lambdas = vcat(Vt.lambdas, reshape(lambda, 1, model.dimStates+1))
     Vt.betas = vcat(Vt.betas, beta)
     Vt.numCuts += 1
 end
@@ -151,7 +151,7 @@ function add_cut_to_model!(model::SPModel, problem::JuMP.Model,
     x = getvariable(problem, :x)
     u = getvariable(problem, :u)
     w = getvariable(problem, :w)
-    @constraint(problem, beta + dot(lambda, model.dynamics(t, x, u, w)) <= alpha)
+    @constraint(problem, beta + dot(lambda, [model.dynamics(t, x, u, w);x[end]]) <= alpha)
 end
 
 
@@ -191,14 +191,14 @@ function backward_pass!(model::SPModel,
     nb_forward = size(stockTrajectories)[2]
 
     costs::Vector{Float64} = zeros(1)
-    state_t = zeros(Float64, model.dimStates)
+    state_t = zeros(Float64, model.dimStates+1)
 
     for t = T-1:-1:1
         costs = zeros(Float64, law[t].supportSize)
 
         for k = 1:nb_forward
 
-            subgradient_array = zeros(Float64, model.dimStates, law[t].supportSize)
+            subgradient_array = zeros(Float64, model.dimStates+1, law[t].supportSize)
             # We collect current state:
             state_t = collect(stockTrajectories[t, k, :])
             # We will store probabilities in a temporary array.
@@ -214,12 +214,14 @@ function backward_pass!(model::SPModel,
 
                 callsolver += 1
                 # We solve LP problem with current noise and position:
+#                println(solverProblems[t])
+#                wait()
                 solved, nextstep = solve_one_step_one_alea(model, param,
                                                            solverProblems[t],
                                                            t, state_t, alea_t)
                 if solved
                     # We catch the subgradient λ:
-                    subgradient_array[:, w] = nextstep.sub_gradient
+                    subgradient_array[:, w] = [nextstep.sub_gradient[i]*(nextstep.cost - state_t[i]>= 0) for i in 1:length(nextstep.sub_gradient)]
                     # and the current cost:
                     costs[w] = nextstep.cost
                     # and as problem is solved we store current proba in array:
@@ -232,10 +234,11 @@ function backward_pass!(model::SPModel,
                 # Scale probability (useful when some problems where infeasible):
                 proba /= sum(proba)
 
+                riskLevel = model.riskLevel
                 # Compute expectation of subgradient λ:
-                subgradient = vec(sum(proba' .* subgradient_array, 2))
+                subgradient = vec((1/(1-riskLevel))*sum(proba' .* subgradient_array, 2))
                 # ... expectation of cost:
-                costs_npass = dot(proba, costs)
+                costs_npass = dot(proba, (1/(1-riskLevel))*max(costs-state_t[model.dimStates+1],0))
                 # ... and expectation of slope β:
                 beta = costs_npass - dot(subgradient, state_t)
 

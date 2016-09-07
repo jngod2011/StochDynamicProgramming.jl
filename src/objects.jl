@@ -42,9 +42,11 @@ type LinearDynamicLinearCostSPmodel <: SPModel
     equalityConstraints
     inequalityConstraints
 
+    riskLevel::Float64
+
     function LinearDynamicLinearCostSPmodel(nstage, ubounds, x0,
                                             cost, dynamic, aleas, Vfinal=nothing,
-                                            eqconstr=nothing, ineqconstr=nothing)
+                                            eqconstr=nothing, ineqconstr=nothing, risk=nothing)
 
         dimStates = length(x0)
         dimControls = length(ubounds)
@@ -57,14 +59,20 @@ type LinearDynamicLinearCostSPmodel <: SPModel
         else
             Vf = PolyhedralFunction(zeros(1), zeros(1, dimStates), 1)
         end
-
+        
+        if isa(risk, Float64)
+            riskLevel = risk
+        else
+            riskLevel = 0
+        end
+        
         xbounds = []
         for i = 1:dimStates
             push!(xbounds, (-Inf, Inf))
         end
 
         return new(nstage, dimControls, dimStates, dimNoises, xbounds, ubounds,
-                   x0, cost, dynamic, aleas, Vf, eqconstr, ineqconstr)
+                   x0, cost, dynamic, aleas, Vf, eqconstr, ineqconstr, riskLevel)
     end
 end
 
@@ -85,14 +93,17 @@ type PiecewiseLinearCostSPmodel <: SPModel
     costFunctions::Vector{Function}
     dynamics::Function
     noises::Vector{NoiseLaw}
+    
     finalCost
 
     equalityConstraints
     inequalityConstraints
+    
+    riskLevel::Float64
 
     function PiecewiseLinearCostSPmodel(nstage, ubounds, x0, costs, dynamic,
                                         aleas, Vfinal=nothing, eqconstr=nothing,
-                                        ineqconstr=nothing)
+                                        ineqconstr=nothing, risk=nothing)
         dimStates = length(x0)
         dimControls = length(ubounds)
         dimNoises = length(aleas[1].support[:, 1])
@@ -103,12 +114,18 @@ type PiecewiseLinearCostSPmodel <: SPModel
             Vf = PolyhedralFunction(zeros(1), zeros(1, dimStates), 1)
         end
 
+        if isa(risk, Float64)
+            riskLevel = risk
+        else
+            riskLevel = 0
+        end        
+        
         xbounds = []
         for i = 1:dimStates
             push!(xbounds, (-Inf, Inf))
         end
         return new(nstage, dimControls, dimStates, dimNoises, xbounds, ubounds,
-                   x0, costs, dynamic, aleas, Vf, eqconstr, ineqconstr)
+                   x0, costs, dynamic, aleas, Vf, eqconstr, ineqconstr, riskLevel)
     end
 end
 
@@ -141,11 +158,13 @@ type StochDynProgModel <: SPModel
     dynamics::Function
     constraints::Function
     noises::Vector{NoiseLaw}
+    
+    riskLevel::Float64
 
     function StochDynProgModel(model::LinearDynamicLinearCostSPmodel, final, cons)
         return StochDynProgModel(model.stageNumber, model.xlim, model.ulim, model.initialState,
                  model.costFunctions, final, model.dynamics, cons,
-                 model.noises)
+                 model.noises, model.riskLevel)
     end
 
     function StochDynProgModel(model::PiecewiseLinearCostSPmodel, final, cons)
@@ -158,14 +177,14 @@ type StochDynProgModel <: SPModel
         end
 
         return StochDynProgModel(model.stageNumber, model.xlim, model.ulim, model.initialState,
-                 cost, final, model.dynamics, cons, model.noises)
+                 cost, final, model.dynamics, cons, model.noises, model.riskLevel)
     end
 
     function StochDynProgModel(TF, x_bounds, u_bounds, x0, cost_t,
-                                finalCostFunction, dynamic, constraints, aleas)
+                                finalCostFunction, dynamic, constraints, aleas, risk)
         return new(TF, length(u_bounds), length(x_bounds), length(aleas[1].support[:, 1]),
                     x_bounds, u_bounds, x0, cost_t, finalCostFunction, dynamic,
-                    constraints, aleas)
+                    constraints, aleas, risk)
     end
 
 end

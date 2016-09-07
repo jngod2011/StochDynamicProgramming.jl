@@ -49,6 +49,7 @@ function solve_one_step_one_alea(model,
                                  xi::Vector{Float64},
                                  init=false::Bool)
     # Get var defined in JuMP.model:
+    xf = getvariable(m, :xf)
     u = getvariable(m, :u)
     w = getvariable(m, :w)
     alpha = getvariable(m, :alpha)
@@ -57,10 +58,10 @@ function solve_one_step_one_alea(model,
     setvalue(w, xi)
 
     # Update constraint x == xt
-    for i in 1:model.dimStates
+    for i in 1:model.dimStates+1
         JuMP.setRHS(m.ext[:cons][i], xt[i])
     end
-
+        
     status = solve(m)
     solved = (status == :Optimal)
 
@@ -68,9 +69,9 @@ function solve_one_step_one_alea(model,
         optimalControl = getvalue(u)
         # Return object storing results:
         result = NextStep(
-                          model.dynamics(t, xt, optimalControl, xi),
+                          [model.dynamics(t, xt, optimalControl, xi); getvalue(xf[end])],
                           optimalControl,
-                          [getdual(m.ext[:cons][i]) for i in 1:model.dimStates],
+                          [getdual(m.ext[:cons][i]) for i in 1:model.dimStates+1],
                           getobjectivevalue(m),
                           getvalue(alpha))
     else

@@ -92,7 +92,7 @@ function run_SDDP!(model::SPModel,
                             param,
                             problems,
                             noise_scenarios)
-
+        
         ####################
         # Backward pass
         callsolver_backward = backward_pass!(model,
@@ -101,7 +101,7 @@ function run_SDDP!(model::SPModel,
                       problems,
                       stockTrajectories,
                       model.noises)
-
+        
         # Update the number of solver call
         stats.ncallsolver += callsolver_forward + callsolver_backward
         iteration_count += 1
@@ -115,9 +115,9 @@ function run_SDDP!(model::SPModel,
             prune_cuts!(model, param, V)
             problems = hotstart_SDDP(model, param, V)
         end
-
+        
         # Update estimation of lower bound:
-        lwb = get_bellman_value(model, param, 1, V[1], model.initialState)
+        lwb = get_bellman_value(model, param, 1, V[1], [model.initialState;0])
         push!(stats.lower_bounds, lwb)
 
         ####################
@@ -143,7 +143,8 @@ function run_SDDP!(model::SPModel,
         end
 
     end
-
+   
+    
     ##########
     # Estimate final upper bound with param.monteCarloSize simulations:
     if (verbose>0) && (param.compute_upper_bound >= 0)
@@ -160,7 +161,7 @@ function run_SDDP!(model::SPModel,
         println("Estimation of cost of the solution (fiability 95\%):",
                  round(mean(costs),4), " +/- ", round(1.96*std(costs)/sqrt(length(costs)),4))
     end
-
+    
     return stats
 end
 
@@ -224,11 +225,15 @@ function build_terminal_cost!(model::SPModel, problem::JuMP.Model, Vt::Polyhedra
     # if shape is PolyhedralFunction, build terminal cost with it:
     alpha = getvariable(problem, :alpha)
     xf = getvariable(problem, :xf)
+    x = getvariable(problem, :x)
     t = model.stageNumber -1
     if isa(Vt, PolyhedralFunction)
         for i in 1:Vt.numCuts
-            lambda = vec(Vt.lambdas[i, :])
-            @constraint(problem, Vt.betas[i] + dot(lambda, xf) <= alpha)
+#            lambda = vec(Vt.lambdas[i, :])
+#            println(lambda)
+#            @constraint(problem, Vt.betas[i] + dot(lambda, xf[1:model.dimStates+1]) <= alpha)
+            @constraint(problem, 0 <= alpha)
+            @constraint(problem, (1/(1-model.riskLevel))*(-x[model.dimStates+1]) <= alpha)
         end
     else
         @constraint(problem, alpha >= 0)
@@ -256,7 +261,14 @@ function build_models(model::SPModel, param::SDDPparameters)
     return JuMP.Model[build_model(model, param, t) for t=1:model.stageNumber-1]
 end
 
-function build_model(model, param, t)
+
+function build_models_normal(model::SPModel, param::SDDPparameters)
+    return JuMP.Model[build_model(model, param, t) for t=1:model.stageNumber-1]
+end
+
+
+
+function build_model_normal(model, param, t)
     m = Model(solver=param.solver)
 
     nx = model.dimStates
@@ -291,9 +303,69 @@ function build_model(model, param, t)
         end
         @objective(m, Min, cost + alpha)
     end
-
+    
     return m
 end
+
+
+
+
+
+
+
+
+function build_model(model, param, t)
+    m = Model(solver=param.solver)
+    
+    lambda = 1
+    
+    nx = model.dimStates
+    nu = model.dimControls
+    nw = model.dimNoises
+
+    @variable(m,  x[i=1:nx+1])
+    @variable(m,  model.ulim[i][1] <= u[i=1:nu] <=  model.ulim[i][2])
+    @variable(m,  xf[i=1:nx+1])
+    @variable(m, alpha)
+    
+    @constraint(m, boundsup[i = 1:nx], model.xlim[i][1] <= x[i])
+    @constraint(m, boundsupf[i = 1:nx], model.xlim[i][1] <= xf[i])
+    
+    @constraint(m, boundinf[i = 1:nx], x[i] <= model.xlim[i][2])
+    @constraint(m, boundinff[i = 1:nx], xf[i] <= model.xlim[i][2])
+        
+    @variable(m, w[1:nw] == 0)
+    m.ext[:cons] = @constraint(m, state_constraint, x .== 0)
+
+    @constraint(m, xf[1:nx] .== model.dynamics(t, x, u, w)[1:nx])
+
+    if model.equalityConstraints != nothing
+        @constraint(m, model.equalityConstraints(t, x, u, w)[1:nx] .== 0)
+    end
+    if model.inequalityConstraints != nothing
+        @constraint(m, model.inequalityConstraints(t, x, u, w)[1:nx] .<= 0)
+    end
+
+    if typeof(model) == LinearDynamicLinearCostSPmodel
+        @objective(m, Min, model.costFunctions(t, x, u, w) + lambda*x[nx+1] + alpha)
+
+    elseif typeof(model) == PiecewiseLinearCostSPmodel
+        @variable(m, cost)
+
+        for i in 1:length(model.costFunctions)
+            @constraint(m, cost >= model.costFunctions[i](t, x, u, w))
+        end
+        @objective(m, Min, cost + lambda*x[nx+1] + alpha)
+    end
+    
+    return m
+end
+
+
+
+
+
+
 
 
 """
@@ -319,7 +391,7 @@ function initialize_value_functions(model::SPModel,
 
     solverProblems = build_models(model, param)
     V = PolyhedralFunction[
-                PolyhedralFunction([], Array{Float64}(0, model.dimStates), 0) for i in 1:model.stageNumber]
+                PolyhedralFunction([], Array{Float64}(0, model.dimStates+1), 0) for i in 1:model.stageNumber]
 
     # Build scenarios according to distribution laws:
     aleas = simulate_scenarios(model.noises, param.forwardPassNumber)
@@ -332,14 +404,15 @@ function initialize_value_functions(model::SPModel,
         model.finalCost(model, solverProblems[end])
     end
 
-    stockTrajectories = zeros(model.stageNumber, param.forwardPassNumber, model.dimStates)
+    stockTrajectories = zeros(model.stageNumber, param.forwardPassNumber, model.dimStates+1)
     for i in 1:model.stageNumber, j in 1:param.forwardPassNumber
-        stockTrajectories[i, j, :] = get_random_state(model)
+        stockTrajectories[i, j, :] = get_random_state_risk(model)
     end
 
     callsolver = backward_pass!(model, param, V, solverProblems,
                                 stockTrajectories, model.noises)
-
+    
+    
     return V, solverProblems
 end
 
@@ -429,7 +502,7 @@ current lower bound of the problem (Float64)
 """
 function get_lower_bound(model::SPModel, param::SDDPparameters,
                             V::Vector{PolyhedralFunction})
-    return get_bellman_value(model, param, 1, V[1], model.initialState)
+    return get_bellman_value(model, param, 1, V[1], [model.initialState; 0])
 end
 
 

@@ -124,6 +124,11 @@ function get_random_state(model)
     return [model.xlim[i][1] + rand()*(model.xlim[i][2] - model.xlim[i][1]) for i in 1:model.dimStates]
 end
 
+function get_random_state_risk(model)
+    aux = [model.xlim[i][1] + rand()*(model.xlim[i][2] - model.xlim[i][1]) for i in 1:model.dimStates]
+    return [aux; rand()*10]
+end
+
 
 """
 Estimate the upper bound with a distribution of costs
