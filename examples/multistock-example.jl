@@ -16,7 +16,7 @@ println("library loaded")
 
 run_sddp = true # false if you don't want to run sddp
 run_sdp  = true # false if you don't want to run sdp
-run_ef   = false # false if you don't want to run extensive formulation
+run_ef   = true # false if you don't want to run extensive formulation
 
 ######## Optimization parameters  ########
 # choose the LP solver used.
@@ -42,7 +42,7 @@ const N_XI = 3                 # discretization of the noise
 
 const r = 0.4                   # bound on cumulative state : \sum_{i=1}^N x_i < rN
 
-const S0 = [0.5*r/N_STOCKS for i=1:N_STOCKS]     # initial stock
+const S0 = [0.5*r for i=1:N_STOCKS]     # initial stock
 
 # create law of noises
 proba = 1/N_XI*ones(N_XI) # uniform probabilities
@@ -51,11 +51,8 @@ xi_law = StochDynamicProgramming.noiselaw_product([NoiseLaw(xi_support, proba) f
 xi_laws = NoiseLaw[xi_law for t in 1:N_STAGES-1]
 
 # Define dynamic of the stock:
-function dynamic_dp(t, x, u, xi)
+function dynamic(t, x, u, xi)
     return [x[i] + u[i] - xi[i] for i in 1:N_STOCKS]
-end
-function dynamic_sddp(t, x, u, xi)
-    return x + u - xi
 end
 
 
@@ -65,13 +62,12 @@ function cost_t(t, x, u, w)
 end
 
 # constraint function
-constraints_dp(t, x, u, w) = sum(x) <= r*N_STOCKS
-constraints_sddp(t, x, u, w) = [sum(x) - r*N_STOCKS]
+constraints(t, x, u, w) = [sum(u) - r*N_STOCKS]
 
 ######## Setting up the SPmodel
 s_bounds = [(0, 1) for i = 1:N_STOCKS]			# bounds on the state
 u_bounds = [(CONTROL_MIN, CONTROL_MAX) for i = 1:N_STOCKS] # bounds on controls
-spmodel = LinearSPModel(N_STAGES,u_bounds,S0,cost_t,dynamic_sddp,xi_laws, ineqconstr=constraints_sddp)
+spmodel = LinearSPModel(N_STAGES,u_bounds,S0,cost_t,dynamic,xi_laws, ineqconstr=constraints)
 set_state_bounds(spmodel, s_bounds) 	# adding the bounds to the model
 println("Model set up")
 
@@ -99,14 +95,8 @@ if run_sdp
     controlSteps = [step for i=1:N_STOCKS] # discretization step of the control
     infoStruct = "HD" # noise at time t is known before taking the decision at time t
 
-    #= spmodel = LinearSPModel(N_STAGES,u_bounds,S0,cost_t,dynamic,xi_laws) =#
-    #= set_state_bounds(spmodel, s_bounds) 	# adding the bounds to the model =#
-    #= spmodel_sdp.constraints = constraints_dp =#
-
     paramSDP = SDPparameters(spmodel, stateSteps, controlSteps, infoStruct)
     spmodel_sdp = StochDynamicProgramming.build_sdpmodel_from_spmodel(spmodel)
-    spmodel_sdp.dynamics = dynamic_dp
-    spmodel_sdp.constraints = constraints_dp
 
     Vs = solve_DP(spmodel_sdp, paramSDP, 1)
     value_sdp = StochDynamicProgramming.get_bellman_value(spmodel,paramSDP,Vs)

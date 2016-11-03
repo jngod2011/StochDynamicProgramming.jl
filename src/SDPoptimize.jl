@@ -72,18 +72,29 @@ Transform a general SPmodel into a StochDynProgModel
 """
 function build_sdpmodel_from_spmodel(model::SPModel)
 
-    function zero_fun(x)
-        return 0
-    end
-
     if isa(model,LinearSPModel)
-        function cons_fun(t,x,u,w)
-            return true
+        function cons(t,x,u,w)
+            test = true
+            if isa(model.inequalityConstraints, Function)
+                for i in model.inequalityConstraints(t,x,u,w)
+                    test &= (i <= 0.)
+                end
+            end
+            if isa(model.equalityConstraints, Function)
+                for i in model.equalityConstraints(t,x,u,w)
+                    test &= (i == 0.)
+                end
+            end
+            return test
         end
+
         if in(:finalCostFunction,fieldnames(model))
-            SDPmodel = StochDynProgModel(model, model.finalCostFunction, cons_fun)
+            SDPmodel = StochDynProgModel(model, model.finalCostFunction, cons)
         else
-            SDPmodel = StochDynProgModel(model, zero_fun, cons_fun)
+            function final(x)
+                return 0
+            end
+            SDPmodel = StochDynProgModel(model, final, cons)
         end
     elseif isa(model,StochDynProgModel)
         SDPmodel = model
