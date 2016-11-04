@@ -73,18 +73,21 @@ Transform a general SPmodel into a StochDynProgModel
 function build_sdpmodel_from_spmodel(model::SPModel)
 
     if isa(model,LinearSPModel)
-        function cons(t,x,u,w)
-            test = true
             if isa(model.inequalityConstraints, Function)
-                for i in model.inequalityConstraints(t,x,u,w)
-                    test &= (i <= 0.)
-                end
+                iq = quote test &= reduce(&, model.inequalityConstraints(t, x, u, w) .<= 0.) end
+            else
+                iq = quote 1 end
             end
             if isa(model.equalityConstraints, Function)
-                for i in model.equalityConstraints(t,x,u,w)
-                    test &= (i == 0.)
-                end
+                eq = quote test &= reduce(&, model.equalityConstraints(t, x, u, w) .== 0.) end
+            else
+                eq = quote 1 end
             end
+
+        @generated function cons(t,x,u,w)
+            test = true
+            eq
+            iq
             return test
         end
 
