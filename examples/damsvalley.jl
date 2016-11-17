@@ -128,5 +128,5 @@ end
 
 # Solve the problem:
 model, params = init_problem()
-V, pbs = @time solve_SDDP(model, params, 1)
+V, pbs, stats = @time solve_SDDP(model, params, 1)
 
