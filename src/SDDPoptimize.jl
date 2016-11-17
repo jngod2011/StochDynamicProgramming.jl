@@ -160,7 +160,9 @@ function run_SDDP!(model::SPModel,
 
         updateSDDPStat!(stats, callsolver_forward+callsolver_backward, lwb, upb,
                         toc_fw, toc_bw, time_pass)
-        print_current_stats(stats, verbose)
+
+        # If specified, print current stat of SDDP
+        ((verbose > 0) && (stats.niterations%verbose==0)) && print(stats)
 
         ####################
         # Stopping test
