@@ -41,14 +41,14 @@ function forward_pass!(model::SPModel,
     # If acceleration is ON, need to build a new array of problem to
     # avoid side effect:
     problems_fp = (param.IS_ACCELERATED)? hotstart_SDDP(model, param, V):problems
-    costs, stockTrajectories,_,callsolver_forward = forward_simulations(model,
+    costs, stockTrajectories,_, solvetime, callsolver_forward = forward_simulations(model,
                         param,
                         problems_fp,
                         noise_scenarios,
                         acceleration=param.IS_ACCELERATED)
 
     model.refTrajectories = stockTrajectories
-    return costs, stockTrajectories, callsolver_forward
+    return costs, stockTrajectories, solvetime, callsolver_forward
 end
 
 
@@ -89,6 +89,7 @@ function forward_simulations(model::SPModel,
                             acceleration=false)
 
     callsolver::Int = 0
+    solvetime_lp = []
 
     T = model.stageNumber
     nb_forward = size(xi)[2]
@@ -125,12 +126,14 @@ function forward_simulations(model::SPModel,
             # Solve optimization problem corresponding to current position:
             if acceleration &&  ~isa(model.refTrajectories, Void)
                 xp = collect(model.refTrajectories[t+1, k, :])
-                status, nextstep = solve_one_step_one_alea(model, param,
+                status, nextstep, sts = solve_one_step_one_alea(model, param,
                                                            solverProblems[t], t, state_t, alea_t, xp)
             else
-                status, nextstep = solve_one_step_one_alea(model, param,
+                status, nextstep, sts = solve_one_step_one_alea(model, param,
                                                            solverProblems[t], t, state_t, alea_t)
             end
+
+            push!(solvetime_lp, sts)
 
             # Check if the problem is effectively solved:
             if status
@@ -153,7 +156,7 @@ function forward_simulations(model::SPModel,
             end
         end
     end
-    return costs, stockTrajectories, controls, callsolver
+    return costs, stockTrajectories, controls, solvetime_lp, callsolver
 end
 
 
@@ -236,6 +239,7 @@ function backward_pass!(model::SPModel,
                         law)
 
     callsolver::Int = 0
+    solvetime = Float64[]
 
     T = model.stageNumber
     nb_forward = size(stockTrajectories)[2]
@@ -265,11 +269,12 @@ function backward_pass!(model::SPModel,
                 callsolver += 1
 
                 # We solve LP problem with current noise and position:
-                solved, nextstep = solve_one_step_one_alea(model, param,
+                solved, nextstep, sts = solve_one_step_one_alea(model, param,
                                                            solverProblems[t],
                                                            t, state_t, alea_t,
                                                            relaxation=model.IS_SMIP)
 
+                push!(solvetime, sts)
                 if solved
                     # We catch the subgradient λ:
                     subgradient_array[:, w] = nextstep.sub_gradient
@@ -301,5 +306,5 @@ function backward_pass!(model::SPModel,
 
         end
     end
-    return callsolver
+    return callsolver, solvetime
 end
