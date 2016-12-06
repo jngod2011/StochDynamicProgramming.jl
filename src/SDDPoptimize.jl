@@ -133,11 +133,11 @@ function run_SDDP!(model::SPModel,
 
         ####################
         # Forward pass : compute stockTrajectories
-        costs, stockTrajectories, callsolver_forward = forward_pass!(model, param, V, problems)
+        costs, stockTrajectories, toc_fw, callsolver_forward = forward_pass!(model, param, V, problems)
 
         ####################
         # Backward pass : update polyhedral approximation of Bellman functions
-        callsolver_backward = backward_pass!(model, param, V, problems, stockTrajectories, model.noises)
+        callsolver_backward, toc_bw = backward_pass!(model, param, V, problems, stockTrajectories, model.noises)
 
         ####################
         # Time execution of current pass
@@ -158,8 +158,11 @@ function run_SDDP!(model::SPModel,
         upb = in_iteration_upb_estimation(model, param, stats.niterations+1, verbose,
                                           upperbound_scenarios, upb, problems)
 
-        updateSDDPStat!(stats, callsolver_forward+callsolver_backward, lwb, upb, time_pass)
-        print_current_stats(stats,verbose)
+        updateSDDPStat!(stats, callsolver_forward+callsolver_backward, lwb, upb,
+                        toc_fw, toc_bw, time_pass)
+
+        # If specified, print current stat of SDDP
+        ((verbose > 0) && (stats.niterations%verbose==0)) && print(stats)
 
         ####################
         # Stopping test
