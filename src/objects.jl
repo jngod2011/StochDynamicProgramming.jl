@@ -63,7 +63,7 @@ type LinearSPModel <: SPModel
 
         dimStates = length(x0)
         dimControls = length(ubounds)
-        dimNoises = length(aleas[1].support[:, 1])
+        dimNoises =    aleas[1].dimNoises #length(aleas[1].support[:, 1])
 
         # First step: process terminal costs.
         # If not specified, default value is null function

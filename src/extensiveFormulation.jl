@@ -94,7 +94,7 @@ function extensive_formulation(model, param; verbose=0)
 
     #Define the objective of the function
     @objective(mod, Min,
-    sum{
+    sum{#FIXME should not be {
         sum{    proba[t][laws[t].supportSize*(n-1)+k]*c[t,laws[t].supportSize*(n-1)+k],
             k = 1:laws[t].supportSize},
         t = 1:T, n=1:div(N[t+1],laws[t].supportSize)}

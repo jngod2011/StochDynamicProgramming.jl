@@ -52,12 +52,34 @@ function solve_one_step_one_alea(model,
                                  relaxation=false::Bool,
                                  init=false::Bool)
     # Get var defined in JuMP.model:
+    x = getvariable(m, :x)
     u = getvariable(m, :u)
     w = getvariable(m, :w)
     alpha = getvariable(m, :alpha)
 
-    # Update value of w:
-    setvalue(w, xi)
+    # Update value of w: 
+    for i in 1:model.dimNoises
+        JuMP.fix(w[i], xi[i])
+    end
+
+
+    #update objective
+    if isa(model.costFunctions, Function)
+        try
+            @objective(m, Min, model.costFunctions(t, x, u, xi) + alpha)
+        catch
+            #FIXME: hacky redefinition of costs as JuMP Model
+            @objective(m, Min, model.costFunctions(m, t, x, u, xi) + alpha)
+        end
+
+    elseif isa(model.costFunctions, Vector{Function})
+        cost = getvariable(m, :cost)
+
+        for i in 1:length(model.costFunctions)
+            @constraint(m, cost >= model.costFunctions[i](t, x, u, xi))
+        end
+        @objective(m, Min, cost + alpha)
+    end
 
     # Update constraint x == xt
     for i in 1:model.dimStates
