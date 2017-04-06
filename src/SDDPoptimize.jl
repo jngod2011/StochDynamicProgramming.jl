@@ -260,9 +260,9 @@ function build_model(model, param, t)
     nw = model.dimNoises
 
     # define variables in JuMP:
-    @variable(m,  model.xlim[i][1] <= x[i=1:nx] <= model.xlim[i][2])
-    @variable(m,  model.xlim[i][1] <= xf[i=1:nx]<= model.xlim[i][2])
-    @variable(m,  model.ulim[i][1] <= u[i=1:nu] <=  model.ulim[i][2])
+    @variable(m,  model.xlim[i,t][1] <= x[i=1:nx] <= model.xlim[i,t][2])
+    @variable(m,  model.xlim[i,t][1] <= xf[i=1:nx]<= model.xlim[i,t][2])
+    @variable(m,  model.ulim[i,t][1] <= u[i=1:nu] <=  model.ulim[i,t][2])
     @variable(m, alpha)
 
     @variable(m, w[1:nw] == 0)
