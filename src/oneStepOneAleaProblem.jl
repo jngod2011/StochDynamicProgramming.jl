@@ -58,9 +58,7 @@ function solve_one_step_one_alea(model,
     alpha = getvariable(m, :alpha)
 
     # Update value of w: 
-    for i in 1:model.dimNoises
-        JuMP.fix(w[i], xi[i])
-    end
+    JuMP.fix.(w,xi)
 
 
     #update objective
@@ -73,6 +71,7 @@ function solve_one_step_one_alea(model,
         end
 
     elseif isa(model.costFunctions, Vector{Function})
+        m2 = deepcopy(m)
         cost = getvariable(m, :cost)
 
         for i in 1:length(model.costFunctions)
@@ -96,6 +95,7 @@ function solve_one_step_one_alea(model,
     # get time taken by the solver:
     solvetime = try getsolvetime(m) catch 0 end
 
+
     if solved
         optimalControl = getvalue(u)
         # Return object storing results:
@@ -110,6 +110,10 @@ function solve_one_step_one_alea(model,
     else
         # If no solution is found, then return nothing
         result = nothing
+    end
+
+    if isa(model.costFunctions, Vector{Function})
+        m = m2
     end
 
     return solved, result, solvetime
