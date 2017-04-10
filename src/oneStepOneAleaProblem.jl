@@ -58,10 +58,8 @@ function solve_one_step_one_alea(model,
     alpha = getvariable(m, :alpha)
 
     # Update value of w: 
-    for i in 1:model.dimNoises
-        JuMP.fix(w[i], xi[i])
-    end
-
+    JuMP.fix.(w,xi)
+    
 
     #update objective
     if isa(model.costFunctions, Function)
