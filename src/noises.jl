@@ -43,7 +43,7 @@ Generic constructor to instantiate NoiseLaw
 
 # Arguments
 * `support`:
-    Position of each point
+    Position of each point (one column per point)
 * `proba`:
     Probabilities of each point
 
@@ -56,17 +56,46 @@ function NoiseLaw(support, proba)
     return NoiseLaw(dimNoises,supportSize, support, proba)
 end
 
-function reshaping_noise(support, proba)
-    if ndims(support)==1
-        support = reshape(support,1,length(support))
-    end
+"""
+Reshaping support and proba to the right type
 
+# Arguments
+* `support`:
+    Position of each point
+* `proba`:
+    Probabilities of each point
+
+# Return
+* `support`::Array{Float64,2}
+    Position of each point
+* `proba`::Array{Float64}
+    Probabilities of each point
+"""
+function reshaping_noise(support, proba)
     if ndims(proba) == 2
         proba = vec(proba)
     elseif  ndims(proba) >= 2
         proba = squeeze(proba,1)
     end
-    return support, proba
+
+    if ndims(support)==1
+        if length(proba) == 1
+            support = reshape(support,length(support),1)
+        else 
+            support = reshape(support,1,length(support))
+        end
+    end
+    
+    if length(proba)!= size(support,2)
+        error("The probability vector has not the same length as the support array")
+    end
+
+    if sum(proba) != 1
+        warn("probabilities sum to ", sum(proba), ". Renormalized.")
+        proba = proba / sum(proba)
+    end
+
+    return convert(Array{Float64,2},support),convert(Array{Float64,1}, proba)
 end
 
 

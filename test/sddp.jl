@@ -3,6 +3,24 @@
 ################################################################################
 using FactCheck, StochDynamicProgramming, JuMP, Clp
 
+facts("Support functions") do
+    proba = ones(3,1)
+    supp = [1, 2, 3]
+    println("Should print a warning about non summing probabilities")
+    supp, proba = StochDynamicProgramming.reshaping_noise(supp,proba)
+    # test supp Array{1}, proba array{2} not summing to 1
+    @fact supp --> [1 2 3]
+    @fact proba --> [1/3, 1/3, 1/3] 
+    # test deterministic noise as vector
+    proba = [1] 
+    supp = [1, 1, 1]
+    supp, proba = StochDynamicProgramming.reshaping_noise(supp,proba)
+    @fact supp --> ones(3,1)
+    @fact proba --> [1] 
+    proba = [1,2]
+    #test mismatching dimensions
+    @fact_throws StochDynamicProgramming.reshaping_noise(supp,proba)
+end
 # Test SDDP with a one dimensional stock:
 facts("SDDP algorithm: 1D case") do
     solver = ClpSolver()
