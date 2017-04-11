@@ -280,12 +280,12 @@ function build_model(model, param, t)
 
     # Define objective function (could be linear or piecewise linear)
     if isa(model.costFunctions, Function)
-        try
+        #try
             @objective(m, Min, model.costFunctions(t, x, u, w) + alpha)
-        catch
+        #catch
             #FIXME: hacky redefinition of costs as JuMP Model
-            @objective(m, Min, model.costFunctions(m, t, x, u, w) + alpha)
-        end
+        #    @objective(m, Min, model.costFunctions(m, t, x, u, w) + alpha)
+        #end
 
     elseif isa(model.costFunctions, Vector{Function})
         @variable(m, cost)

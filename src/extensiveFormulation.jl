@@ -1,4 +1,4 @@
-#  Copyright 2015, Vincent Leclere, Francois Pacaud and Henri Gerard
+#  Copyright 2017, V.Leclere, H.Gerard, F.Pacaud, T.Rigaut
 #  This Source Code Form is subject to the terms of the Mozilla Public
 #  License, v. 2.0. If a copy of the MPL was not distributed with this
 #  file, You can obtain one at http://mozilla.org/MPL/2.0/.
@@ -9,7 +9,6 @@
 
 """ Contruct the scenario tree and solve the problem with
 measurability constraints.
-
 # Arguments:
 * `model::SPModel`
 * `param::SDDPparameters`
@@ -77,14 +76,14 @@ function extensive_formulation(model, param; verbose=0)
                 [x[t+1,DIM_STATE*(m-1)+k] for k = 1:DIM_STATE] .== model.dynamics(t,
                                                                                     [x[t,DIM_STATE*(n-1)+k] for k = 1:DIM_STATE],
                                                                                     [u[t,DIM_CONTROL*(m-1)+k] for k = 1:DIM_CONTROL],
-                                                                                    laws[t].support[xi]))
+                                                                                    laws[t].support[:, xi]))
 
                 #Add constraints to define the cost at each node
                 @constraint(mod,
                 c[t,m] == model.costFunctions(t,
                                                 [x[t,DIM_STATE*(n-1)+k] for k = 1:DIM_STATE],
                                                 [u[t,DIM_CONTROL*(m-1)+k] for k = 1:DIM_CONTROL],
-                                                laws[t].support[xi]))
+                                                laws[t].support[:, xi]))
             end
         end
     end
@@ -94,11 +93,10 @@ function extensive_formulation(model, param; verbose=0)
 
     #Define the objective of the function
     @objective(mod, Min,
-    sum{#FIXME should not be {
-        sum{    proba[t][laws[t].supportSize*(n-1)+k]*c[t,laws[t].supportSize*(n-1)+k],
-            k = 1:laws[t].supportSize},
-        t = 1:T, n=1:div(N[t+1],laws[t].supportSize)}
-    )
+    sum(
+        sum(proba[t][laws[t].supportSize*(n-1)+k]*c[t,laws[t].supportSize*(n-1)+k]
+            for k = 1:laws[t].supportSize)
+        for t = 1:T,  n=1:div(N[t+1],laws[t].supportSize)))
 
     status = solve(mod)
     solved = (status == :Optimal)
@@ -111,4 +109,3 @@ function extensive_formulation(model, param; verbose=0)
         error("Extensive formulation not solved to optimality. Change the model")
     end
 end
-

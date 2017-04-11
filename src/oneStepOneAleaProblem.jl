@@ -72,7 +72,6 @@ function solve_one_step_one_alea(model,
 
     elseif isa(model.costFunctions, Vector{Function})
         cost = getvariable(m, :cost)
-
         for i in 1:length(model.costFunctions)
             @constraint(m, cost >= model.costFunctions[i](t, x, u, xi))
         end
@@ -81,6 +80,7 @@ function solve_one_step_one_alea(model,
 
     # Update constraint x == xt
     for i in 1:model.dimStates
+        #JuMP.setRHS(m.ext[:cons][i], xt[i])
         JuMP.setRHS(m.ext[:cons][i], xt[i])
     end
 

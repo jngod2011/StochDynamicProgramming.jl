@@ -53,7 +53,7 @@ supports[:,2] = mean(data[:,31:62],2);
 supports[:,3] = mean(data[:,63:end],2);
 
 ### Constructing Noises laws
-xi_laws = NoiseLaw[ NoiseLaw(supports[t,:], [1/3 1/3 1/3]) for t in 1:24 ] 
+c_laws = NoiseLaw[ NoiseLaw(supports[t,:], [1/3 1/3 1/3]) for t in 1:24 ] 
 
 ## Define the dynamic of the (inventory) stock
 function dynamic_P(t, x, u, xi)
@@ -66,7 +66,7 @@ function cost_P(t, x, u, w)
 end
 
 ######### Setting up the SOC problem
-q0 = zeros(N_STAGES)
+q = zeros(N_STAGES)
 
 function Intraday_Primal(q)
     s_bounds = repmat([(-Inf,Inf)],1,N_STAGES)
@@ -74,7 +74,7 @@ function Intraday_Primal(q)
         s_bounds[1,t]=(-q[t], SMAX - q[t])
     end
     u_bounds = [(CONTROL_MIN, CONTROL_MAX)]
-    spmodel = LinearSPModel(N_STAGES,u_bounds,S0,cost_P,dynamic_P,xi_laws)
+    spmodel = LinearSPModel(N_STAGES,u_bounds,S0,cost_P,dynamic_P,c_laws)
     set_state_bounds(spmodel, s_bounds) 
 
     paramSDDP = SDDPparameters(SOLVER,
@@ -85,18 +85,18 @@ function Intraday_Primal(q)
     return lb_sddp
 end
 
-Intraday_Primal(q0)
+#Intraday_Primal(q)
 
 ###########################################################################
 
 # lambda = (alpha,beta,gamma,delta[1],delta[2])
-#hacky use of noise for qt
-function cost_D(t,z,lambda, qt)
-    res = -lambda[2]*qt[1] +  lambda[3]*(qt[1]-SMAX) - lambda[4]*CONTROL_MAX+lambda[5]*CONTROL_MIN
+#FIXME hacky use of noise for qt --> not working
+function cost_D(t,z,lambda, w)
+    res = -lambda[2]*q[t] +  lambda[3]*(q[t]-SMAX) - lambda[4]*CONTROL_MAX+lambda[5]*CONTROL_MIN
     if t >= 2 
         return res 
     else
-        return res + lambda[1]*S0
+        return res + z[1]*S0[1]
     end
 end
 
@@ -104,15 +104,46 @@ function dynamic_D(t,z,lambda,ct)
     # z_{t+1} = alpha_t - beta_t + gamma_t
     return [lambda[1]-lambda[2]+lambda[3]]
 end
-## Contraintes : 
-# lambda[1] = z_{t-1}
+## Contraintes : pour t intermédiaire
+# alpha_t = z_{t-1} 
+# alpha_t -delta_1 + delta_2 =c_t --> z[1] - lambda[4] + lambda[5] == ct[1]
+# beta gamma delta >=0 --> Dans les bornes
+#  pour t = T on ajoute (et K==0)
+# alpha_T - beta_T + gamma_T =0 --> z[1]-lambda[2]+lambda[3] == 0
+# pour t = 1 il faut libérer alpha, i.e. on a 
+# lambda[1] - lambda[4] + lambda[5] == ct[1]
+
+
+function cst(t,z,lambda,ct)
+    if t == 24
+        return [lambda[1]-z[1],lambda[1] - lambda[4] + lambda[5] - ct[1], lambda[1]-lambda[2]+lambda[3]]
+    elseif t>= 2
+        return [lambda[1]-z[1],lambda[1] - lambda[4] + lambda[5] - ct[1]]
+    else 
+        return [lambda[1] - lambda[4] + lambda[5] - ct[1]]
+    end
+end
+
 
 function Intraday_Dual(q)
+    z_bounds = repmat([(-100,100)],1,N_STAGES) #TODO should be Inf
+    lambda_bounds = repmat([(-Inf,Inf);(0,Inf);(0,Inf);(0,Inf);(0,Inf)],1,N_STAGES)
 
+    spmodel_d = LinearSPModel(N_STAGES,lambda_bounds,S0,cost_D,dynamic_D,c_laws, eqconstr=cst )
+    set_state_bounds(spmodel_d, z_bounds) 
+    paramSDDP = SDDPparameters(SOLVER,
+                               passnumber=10,
+                               max_iterations=MAX_ITER)
+    V, pbs = solve_SDDP(spmodel_d, paramSDDP, 5)
+    lb_sddp = StochDynamicProgramming.get_lower_bound(spmodel_d, paramSDDP, V)
+    return lb_sddp
+end
+
+Intraday_Dual(q)
 
 			        # bounds on the state
 #u_bounds = [(CONTROL_MIN, CONTROL_MAX)] # bounds on the controls
-#spmodel = LinearSPModel(N_STAGES,u_bounds,S0,cost_t,dynamic,xi_laws) # constructing the spmodel
+#spmodel = LinearSPModel(N_STAGES,u_bounds,S0,cost_t,dynamic,c_laws) # constructing the spmodel
 #set_state_bounds(spmodel, s_bounds) 	# adding states bounds to the problem
 
 ########## Solving the problem via SDDP (Stochastic Dynamic Dual Programming)

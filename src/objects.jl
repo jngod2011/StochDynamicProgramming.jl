@@ -63,7 +63,7 @@ type LinearSPModel <: SPModel
                            control_cat=nothing) # category of controls
 
         dimStates = length(x0)
-        dimControls = length(u_bounds)
+        dimControls = size(u_bounds,1)
         dimNoises =    aleas[1].dimNoises #length(aleas[1].support[:, 1])
 
         # First step: process terminal costs.
@@ -114,7 +114,7 @@ function test_and_reshape_bounds(bounds, nx,ns, variable)
     elseif ndims(bounds) == 2 && size(bounds) == (nx,ns)
         return bounds
     else
-        error(variable, " bounds dimension should be ", model.dimStates," or (",model.dimStates,",",model.stageNumber,")")
+        error(variable, " bounds dimension should be ", nx," or (",nx,",",ns,")")
     end
 end
 

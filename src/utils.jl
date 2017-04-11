@@ -125,7 +125,19 @@ Generate a random state.
 
 """
 function get_random_state(model::SPModel)
+    if size(model.xlim)!=(model.dimStates,model.stageNumber)
+        error("Undefined state bounds")
+    end
+    infinite_bound = false
+    for i in 1:model.dimStates, j in 1:model.stageNumber
+        infinite_bound &= (isinf(model.xlim[i,j][2]) && isinf(model.xlim[i,j][1]))
+    end
+    if infinite_bound
+        error("Infinite state bounds")
+    end
+   
     return [model.xlim[i][1] + rand()*(model.xlim[i][2] - model.xlim[i][1]) for i in 1:model.dimStates]
+    
 end
 
 
