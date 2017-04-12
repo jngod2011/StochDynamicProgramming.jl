@@ -300,7 +300,10 @@ function build_model(model, param, t)
     if model.IS_SMIP
         m.colCat[2*nx+1:2*nx+nu] = model.controlCat
     end
-
+    if param.verbose > 3 
+        println("initial model built at time t=",t)
+        print(m)
+    end
     return m
 end
 
@@ -325,7 +328,7 @@ This function add the fist cut to each PolyhedralFunction stored in a Array
 """
 function initialize_value_functions(model::SPModel,
                                     param::SDDPparameters)
-
+    if param.verbose > 1 println("Initialize value functions") end
     solverProblems = build_models(model, param)
     V = PolyhedralFunction[
                 PolyhedralFunction(model.dimStates) for i in 1:model.stageNumber]

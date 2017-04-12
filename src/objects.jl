@@ -202,13 +202,15 @@ type SDDPparameters
     IS_ACCELERATED::Bool
     # ... and acceleration parameters:
     acceleration::Dict{Symbol, Float64}
+    # verbosity level
+    verbose::Int64
 
     function SDDPparameters(solver; passnumber=10, gap=0., confidence=.975,
                             max_iterations=20, prune_cuts=0,
                             pruning_algo="none",
                             compute_ub=-1, montecarlo_final=1000, montecarlo_in_iter=100,
                             mipsolver=nothing,
-                            rho0=0., alpha=1.)
+                            rho0=0., alpha=1.,verbose=0)
 
         if ~(pruning_algo ∈ ["none", "exact+", "level1", "exact"])
             throw(ArgumentError("`pruning_algo` must be `none`, `level1`, `exact` or `exact+`"))
@@ -228,7 +230,7 @@ type SDDPparameters
                           :type=>corresp[pruning_algo])
         return new(solver, mipsolver, passnumber, gap, confidence,
                    max_iterations, prune_cuts, compute_ub,
-                   montecarlo_final, montecarlo_in_iter, is_acc, accparams)
+                   montecarlo_final, montecarlo_in_iter, is_acc, accparams,verbose)
     end
 end
 

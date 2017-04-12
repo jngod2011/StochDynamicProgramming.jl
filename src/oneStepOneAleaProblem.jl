@@ -80,10 +80,14 @@ function solve_one_step_one_alea(model,
 
     # Update constraint x == xt
     for i in 1:model.dimStates
-        #JuMP.setRHS(m.ext[:cons][i], xt[i])
         JuMP.setRHS(m.ext[:cons][i], xt[i])
     end
-
+    if param.verbose > 5
+        println("One step one alea problem at time t=",t)
+        println("for x =",xt)
+        println("and w=",xi)
+        print(m)
+    end
     if model.IS_SMIP
         solved = relaxation ? solve_relaxed!(m, param): solve_mip!(m, param)
     else

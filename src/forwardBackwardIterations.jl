@@ -177,6 +177,7 @@ Add to polyhedral function a cut with shape Vt >= beta + <lambda,.>
 function add_cut!(model::SPModel,
     t::Int64, Vt::PolyhedralFunction,
     beta::Float64, lambda::Vector{Float64})
+    param.verbose > 4 && println("adding cut to polyhedral function at time t=",t)
     Vt.lambdas = vcat(Vt.lambdas, reshape(lambda, 1, model.dimStates))
     Vt.betas = vcat(Vt.betas, beta)
     Vt.numCuts += 1
@@ -200,6 +201,7 @@ Add a cut to the JuMP linear problem.
 """
 function add_cut_to_model!(model::SPModel, problem::JuMP.Model,
                             t::Int64, beta::Float64, lambda::Vector{Float64})
+    param.verbose > 4 && println("adding cut to model at time t=",t)
     alpha = getvariable(problem, :alpha)
     x = getvariable(problem, :x)
     u = getvariable(problem, :u)
@@ -237,7 +239,7 @@ function backward_pass!(model::SPModel,
                         solverProblems::Vector{JuMP.Model},
                         stockTrajectories::Array{Float64, 3},
                         law)
-
+    param.verbose > 1 && println("starting backward pass")
     callsolver::Int = 0
     solvetime = Float64[]
 
@@ -257,7 +259,7 @@ function backward_pass!(model::SPModel,
             state_t = collect(stockTrajectories[t, k, :])
             # We will store probabilities in a temporary array.
             # It is initialized at 0. If all problem are infeasible for
-            # current timestep, then proba remains equal to 0 and not cut is added.
+            # current timestep, then proba remains equal to 0 and no cut is added.
             proba = zeros(law[t].supportSize)
 
             # We iterate other the possible realization of noise:
@@ -287,7 +289,7 @@ function backward_pass!(model::SPModel,
 
             # We add cuts only if one solution was being found:
             if sum(proba) > 0
-                # Scale probability (useful when some problems where infeasible):
+                # Scale probability (useful when some problems are infeasible):
                 proba /= sum(proba)
 
                 # Compute expectation of subgradient λ:

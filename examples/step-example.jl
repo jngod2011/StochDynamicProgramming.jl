@@ -20,7 +20,7 @@ using StochDynamicProgramming, Clp #calling the library and a solver.
 const SOLVER = ClpSolver() 			   # requires "using Clp"
 #const SOLVER = CplexSolver(CPX_PARAM_SIMDISPLAY=0) # requires "using CPLEX"
 
-const MAX_ITER = 30 # number of iterations of SDDP
+const MAX_ITER = 2 # number of iterations of SDDP
 
 
 ######## Stochastic optimization problem parameters  ########
@@ -133,7 +133,8 @@ function Intraday_Dual(q)
     set_state_bounds(spmodel_d, z_bounds) 
     paramSDDP = SDDPparameters(SOLVER,
                                passnumber=10,
-                               max_iterations=MAX_ITER)
+                               max_iterations=MAX_ITER,
+                               verbose=10)
     V, pbs = solve_SDDP(spmodel_d, paramSDDP, 5)
     lb_sddp = StochDynamicProgramming.get_lower_bound(spmodel_d, paramSDDP, V)
     return lb_sddp
