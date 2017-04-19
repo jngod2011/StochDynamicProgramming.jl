@@ -46,8 +46,23 @@ Compute the cartesian products of discretized state spaces
     the cartesian product iterators for states
 
 """
-function generate_state_grid(model::SPModel, param::SDPparameters, w::Nullable{Array} = Nullable{Array}() )
-    product_states = Base.product([model.xlim[i][1]:param.stateSteps[i]:model.xlim[i][2] for i in 1:model.dimStates]...)
+function generate_state_grid(model::SPModel, param::SDPparameters, t::Int = -1 )
+    xlim = model.xlim
+    xdim = model.dimStates
+    xsteps = param.stateSteps
+    if (ndims(xlim)==2)
+        if (ndims(xsteps)==1)
+            error("the discretization of state grid should be indexed by time")
+        end
+        if t<0
+            warn("Time step is not provided for state grid. Defaulted to 1")
+            return Base.product([xlim[i,1][1]:xsteps[i,1]:xlim[i,1][2] for i in 1:xdim]...)
+        else
+            return Base.product([xlim[i,t][1]:xsteps[i,1]:xlim[i,t][2] for i in 1:xdim]...)
+        end
+    else
+        return Base.product([xlim[i,t][1]:xsteps[i,t]:xlim[i,t][2] for i in 1:xdim]...)
+    end
 
     return collect(product_states)
 end
