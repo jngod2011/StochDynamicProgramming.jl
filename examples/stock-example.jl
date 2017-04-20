@@ -14,7 +14,7 @@
 using StochDynamicProgramming, Clp
 println("library loaded")
 
-run_sddp = false # false if you don't want to run sddp
+run_sddp = true # false if you don't want to run sddp
 run_sdp  = true # false if you don't want to run sdp
 run_ef   = true # false if you don't want to run extensive formulation
 test_simulation = true # false if you don't want to test your strategies

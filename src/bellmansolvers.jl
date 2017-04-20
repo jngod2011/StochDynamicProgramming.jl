@@ -399,7 +399,7 @@ end
 function linear_program_dh(sampling_size::Int, samples::Array,
                         probas::Array, u_bounds::Array, x_bounds::Array,
                         x_steps::Array, x_dim::Int, dynamics::Function,
-                        constraints::Function, cost::Function,
+                        inequalityConstraints, equalityConstraints, cost::Function,
                         Vcuts, t::Int, x::Union{Array,Tuple})
 
     m = Model(solver = solver)
@@ -439,7 +439,7 @@ end
 function linear_program_hd(sampling_size::Int, samples::Array,
                         probas::Array, u_bounds::Array, x_bounds::Array,
                         x_steps::Array, x_dim::Int, dynamics::Function,
-                        constraints::Function, cost::Function,
+                        inequalityConstraints, equalityConstraints, cost::Function,
                         Vcuts, t::Int, x::Union{Array,Tuple})
 
     m = Model(solver = solver)
