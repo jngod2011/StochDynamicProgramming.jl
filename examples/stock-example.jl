@@ -1,4 +1,4 @@
-#  Copyright 2015, Vincent Leclere, Francois Pacaud and Henri Gerard
+#  Copyright 2017, V.Leclere, H.Gerard, F.Pacaud, T.Rigaut
 #  This Source Code Form is subject to the terms of the Mozilla Public
 #  License, v. 2.0. If a copy of the MPL was not distributed with this
 #  file, You can obtain one at http://mozilla.org/MPL/2.0/.
@@ -14,7 +14,7 @@
 using StochDynamicProgramming, Clp
 println("library loaded")
 
-run_sddp = true # false if you don't want to run sddp
+run_sddp = false # false if you don't want to run sddp
 run_sdp  = true # false if you don't want to run sdp
 run_ef   = true # false if you don't want to run extensive formulation
 test_simulation = true # false if you don't want to test your strategies
@@ -61,8 +61,8 @@ end
 ######## Setting up the SPmodel
 s_bounds = [(0, 1)] 			# bounds on the state
 u_bounds = [(CONTROL_MIN, CONTROL_MAX)] # bounds on controls
-spmodel = LinearSPModel(N_STAGES,u_bounds,[S0],cost_t,dynamic,xi_laws)
-set_state_bounds(spmodel, s_bounds) 	# adding the bounds to the model
+spmodel = LinearSPModel(N_STAGES,u_bounds,[S0],cost_t,dynamic,xi_laws,
+                        xbounds = s_bounds)
 println("Model set up")
 
 ######### Solving the problem via SDDP

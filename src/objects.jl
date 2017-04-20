@@ -65,7 +65,8 @@ type LinearSPModel <: SPModel
                            Vfinal=nothing,     # final cost
                            eqconstr=nothing,   # equality constraints
                            ineqconstr=nothing, # inequality constraints
-                           control_cat=nothing) # category of controls
+                           control_cat=nothing,
+                           xbounds = nothing) # category of controls
 
         dimStates = length(x0)
         dimControls = length(ubounds)
@@ -82,7 +83,9 @@ type LinearSPModel <: SPModel
         isbu = isa(control_cat, Vector{Symbol})? control_cat: [:Cont for i in 1:dimStates]
         is_smip = (:Int in isbu)||(:Bin in isbu)
 
-        xbounds = [(-Inf, Inf) for i=1:dimStates]
+        if isa(xbounds, Void)
+            xbounds = [(-Inf, Inf) for i=1:dimStates]
+        end
 
         return new(nstage, dimControls, dimStates, dimNoises, xbounds, ubounds,
                    x0, cost, dynamic, aleas, Vf, isbu, eqconstr, ineqconstr, is_smip)
@@ -98,54 +101,6 @@ function set_state_bounds(model::SPModel, xbounds)
         model.xlim = xbounds
     end
 end
-
-
-type StochDynProgModel <: SPModel
-    # problem dimension
-    stageNumber::Int64
-    dimControls::Int64
-    dimStates::Int64
-    dimNoises::Int64
-
-    # Bounds of states and controls:
-    xlim::Array{Tuple{Float64,Float64},1}
-    ulim::Array{Tuple{Float64,Float64},1}
-
-    initialState::Array{Float64, 1}
-
-    costFunctions::Function
-    finalCostFunction::Function
-    dynamics::Function
-    constraints::Function
-    noises::Vector{NoiseLaw}
-
-    function StochDynProgModel(model::LinearSPModel, final, cons)
-        if isa(model.costFunctions, Function)
-            cost = model.costFunctions
-        #FIXME: broken test since 0.5 release
-        else
-            function cost(t,x,u,w)
-                current_cost = -Inf
-                for aff_func in model.costFunctions
-                    current_cost = aff_func(t,x,u,w)
-                end
-            return current_cost
-            end
-        end
-        return StochDynProgModel(model.stageNumber, model.xlim, model.ulim, model.initialState,
-                 cost, final, model.dynamics, cons,
-                 model.noises)
-    end
-
-    function StochDynProgModel(TF, x_bounds, u_bounds, x0, cost_t,
-                                finalCostFunction, dynamic, constraints, aleas)
-        return new(TF, length(u_bounds), length(x_bounds), length(aleas[1].support[:, 1]),
-                    x_bounds, u_bounds, x0, cost_t, finalCostFunction, dynamic,
-                    constraints, aleas)
-    end
-
-end
-
 
 type SDPparameters
     stateSteps::Array

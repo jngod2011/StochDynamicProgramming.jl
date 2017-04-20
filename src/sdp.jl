@@ -101,46 +101,6 @@ end
 
 
 """
-Transform a general SPmodel into a StochDynProgModel
-
-# Arguments
-* `model::SPmodel`:
-    the model of the problem
-* `param::SDPparameters`:
-    the parameters of the problem
-
-# Return
-* `sdpmodel::StochDynProgModel:
-    the corresponding StochDynProgModel
-
-"""
-function build_sdpmodel_from_spmodel(model::SPModel)
-
-    function zero_fun(x)
-        return 0
-    end
-
-    if isa(model,LinearSPModel)
-        function cons_fun(t,x,u,w)
-            return true
-        end
-        if in(:finalCostFunction,fieldnames(model))
-            SDPmodel = StochDynProgModel(model, model.finalCostFunction, cons_fun)
-        else
-            SDPmodel = StochDynProgModel(model, zero_fun, cons_fun)
-        end
-    elseif isa(model,StochDynProgModel)
-        SDPmodel = model
-    else
-        error("cannot build StochDynProgModel from current SPmodel. You need to
-        implement a new StochDynProgModel constructor.")
-    end
-
-    return SDPmodel
-end
-
-
-"""
 Dynamic programming algorithm to compute optimal value functions
 by backward induction using bellman equation in the finite horizon case.
 The information structure can be Decision Hazard (DH) or Hazard Decision (HD)
@@ -160,12 +120,53 @@ The information structure can be Decision Hazard (DH) or Hazard Decision (HD)
 
 """
 function solve_dp(model::SPModel, param::SDPparameters, display=0::Int64)
-
-    SDPmodel = build_sdpmodel_from_spmodel(model)
-
     # Start of the algorithm
-    V = compute_value_functions_grid(SDPmodel, param, display)
+    V = compute_value_functions_grid(model, param, display)
     return V
+end
+
+function build_cost_function(costFunctions::Union{Function, Array{Function}, PolyhedralFunction})
+    if isa(costFunctions, Function)
+        return costFunctions
+    else
+        return function cost(t,x,u,w)
+            return maximum([aff_func(t,x,u,w) for aff_func in costFunctions])
+        end
+    end
+end
+
+function build_final_cost_function(costFunctions::Union{Function, Array{Function}, PolyhedralFunction})
+    if isa(costFunctions, Function)
+        return costFunctions
+    elseif isa(costFunctions, Array{Function})
+        return (x) -> maximum([aff_func(x) for aff_func in costFunctions])
+    elseif isa(costFunctions, PolyhedralFunction)
+        return (x) -> maximum([costFunctions.betas[k] + dot(costFunctions.lambdas[k,:],[x...]) for k in 1:costFunctions.numCuts])
+    else
+        return (x) -> 0
+    end
+end
+
+function initialize_final_value(final_cost, x_grid::Array, x_bounds,
+                                x_steps, V::Union{Array, SharedArray})
+    for x in x_grid
+        ind_x = BellmanSolvers.index_from_variable(x, x_bounds, x_steps)
+        V[ind_x..., end] = final_cost(x)
+    end
+
+end
+
+
+function build_contraints_function(ineq_cons::Nullable{Function}, eq_cons::Nullable{Function})
+    if !isnull(ineq_cons)&&!isnull(eq_cons)
+        return (t,x,u,w) -> (find(abs.(eq_cons(t,x,u,w)).>1e-10)==[])&&(find(eq_cons(t,x,u,w).>1e-10)==[])
+    elseif !isnull(ineq_cons)
+        return (t,x,u,w) -> (find(eq_cons(t,x,u,w).>1e-10)==[])
+    elseif !isnull(eq_cons)
+        return (t,x,u,w) -> (find(eq_cons(t,x,u,w).!=0)==[])
+    else
+        return (t,x,u,w) -> true
+    end
 end
 
 
@@ -186,7 +187,7 @@ Dynamic Programming algorithm to compute optimal value functions
     of the system at each time step
 
 """
-function compute_value_functions_grid(model::StochDynProgModel,
+function compute_value_functions_grid(model::SPModel,
                                         param::SDPparameters,
                                         display=0::Int64)
 
@@ -199,8 +200,13 @@ function compute_value_functions_grid(model::StochDynProgModel,
     x_dim = model.dimStates
 
     dynamics = model.dynamics
-    constraints = model.constraints
-    cost = model.costFunctions
+
+    cost = build_cost_function(model.costFunctions)
+
+    fin_cost = build_final_cost_function(model.finalCost)
+
+    constraints = build_contraints_function(model.inequalityConstraints,
+                                            model.equalityConstraints)
 
     law = model.noises
 
@@ -214,10 +220,7 @@ function compute_value_functions_grid(model::StochDynProgModel,
     V = SharedArray{Float64}(zeros(Float64, size(product_states)..., TF))
 
     #Compute final value functions
-    for x in product_states
-        ind_x = BellmanSolvers.index_from_variable(x, x_bounds, x_steps)
-        V[ind_x..., TF] = model.finalCostFunction(x)
-    end
+    initialize_final_value(fin_cost, product_states, x_bounds, x_steps, V)
 
     if param.expectation_computation!="MonteCarlo" && param.expectation_computation!="Exact"
         warn("param.expectation_computation should be 'MonteCarlo' or 'Exact'.
@@ -324,13 +327,18 @@ hazard case
 function get_control(model::SPModel,param::SDPparameters,
                      V, t::Int64, x::Array, w::Union{Void, Array} = nothing)
 
-    sdp_model = build_sdpmodel_from_spmodel(model)
-
     args = []
     optional_args = []
 
+    dynamics = model.dynamics
+
+    cost = build_cost_function(model.costFunctions)
+
+    constraints = build_contraints_function(model.inequalityConstraints,
+                                            model.equalityConstraints)
+
     if w==nothing
-        law = sdp_model.noises
+        law = model.noises
         get_u = BellmanSolvers.exhaustive_search_dh_get_u
         if (param.expectation_computation=="MonteCarlo")
             sampling_size = param.monteCarloSize
@@ -346,10 +354,10 @@ function get_control(model::SPModel,param::SDPparameters,
         push!(optional_args, w, param.build_search_space)
     end
 
-    push!(args, sdp_model.ulim, sdp_model.xlim, param.stateSteps,
-            sdp_model.dimStates, generate_control_grid(sdp_model, param),
-            sdp_model.dynamics, sdp_model.constraints, sdp_model.costFunctions,
-            value_function_interpolation(sdp_model.dimStates, V, t+1), t, x)
+    push!(args, sdp_model.ulim, model.xlim, param.stateSteps,
+            model.dimStates, generate_control_grid(model, param),
+            dynamics, constraints, cost,
+            value_function_interpolation(model.dimStates, V, t+1), t, x)
 
     return get_u(args..., optional_args...)[1]
 end
@@ -387,26 +395,30 @@ function forward_simulations(model::SPModel,
                             scenarios::Array,
                             display=true::Bool)
 
-    SDPmodel = build_sdpmodel_from_spmodel(model)
-
     nb_scenarios = size(scenarios,2)
 
-    TF = SDPmodel.stageNumber
-    law = SDPmodel.noises
-    x_dim = SDPmodel.dimStates
-    product_states = generate_state_grid(SDPmodel, param)
+    TF = model.stageNumber
+    law = model.noises
+    x_dim = model.dimStates
+    product_states = generate_state_grid(model, param)
     costs = SharedArray{Float64}(zeros(nb_scenarios))
     states = SharedArray{Float64}(zeros(TF,nb_scenarios,x_dim))
-    controls = SharedArray{Float64}(zeros(TF-1,nb_scenarios,SDPmodel.dimControls))
+    controls = SharedArray{Float64}(zeros(TF-1,nb_scenarios,model.dimControls))
 
-    dynamics = SDPmodel.dynamics
-    cost = SDPmodel.costFunctions
+    dynamics = model.dynamics
 
-    args = [SDPmodel.ulim, SDPmodel.xlim, param.stateSteps, x_dim,
-    generate_control_grid(SDPmodel, param), dynamics, SDPmodel.constraints,
+    cost = build_cost_function(model.costFunctions)
+
+    fin_cost = build_final_cost_function(model.finalCost)
+
+    constraints = build_contraints_function(model.inequalityConstraints,
+                                            model.equalityConstraints)
+
+    args = [model.ulim, model.xlim, param.stateSteps, x_dim,
+    generate_control_grid(model, param), dynamics, constraints,
     cost]
 
-    X0 = SDPmodel.initialState
+    X0 = model.initialState
     for s in 1:nb_scenarios
         states[1, s, :] = X0
     end
@@ -466,7 +478,7 @@ function forward_simulations(model::SPModel,
     end
 
     for s in 1:nb_scenarios
-        costs[s] = costs[s] + SDPmodel.finalCostFunction(states[TF,s,:])
+        costs[s] = costs[s] + fin_cost(states[TF,s,:])
     end
 
     return costs, states, controls
