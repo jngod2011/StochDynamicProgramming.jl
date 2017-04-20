@@ -2,7 +2,7 @@
 # Test SDDP functions
 ################################################################################
 using Base.Test, StochDynamicProgramming
-using StochDynamicProgramming.SdpLoops
+using StochDynamicProgramming.BellmanSolvers
 
 @testset "Indexation for SDP" begin
 
@@ -11,11 +11,11 @@ using StochDynamicProgramming.SdpLoops
     var = [0.4, 3.7, 1.9]
     vart = [0.42, 3.78, 1.932]
 
-    ind = SdpLoops.index_from_variable(var, bounds, steps)
-    ind2 = SdpLoops.real_index_from_variable(vart, bounds, steps)
+    ind = BellmanSolvers.index_from_variable(var, bounds, steps)
+    ind2 = BellmanSolvers.real_index_from_variable(vart, bounds, steps)
 
-    checkFalse = SdpLoops.is_next_state_feasible([0,1,2],3,bounds)
-    checkTrue = SdpLoops.is_next_state_feasible([0.12,1.3,1.3],3,bounds)
+    checkFalse = BellmanSolvers.is_next_state_feasible([0,1,2],3,bounds)
+    checkTrue = BellmanSolvers.is_next_state_feasible([0.12,1.3,1.3],3,bounds)
 
 
     @test ind == (4,51,141)
@@ -221,7 +221,7 @@ end
             @test length(collect(b)) == (u_bounds[1][2]-u_bounds[1][1]+u_steps[1])*(u_bounds[2][2]-u_bounds[2][1]+u_steps[2])/(u_steps[1]*u_steps[2])
 
             modelSDP.initialState = [xi[1] for xi in x_bounds]
-            ind = SdpLoops.index_from_variable(modelSDP.initialState, x_bounds, x_steps)
+            ind = BellmanSolvers.index_from_variable(modelSDP.initialState, x_bounds, x_steps)
             @test get_bellman_value(modelSDP, paramsSDP, V_sdp2) == V_sdp2[ind...,1]
             modelSDP.initialState = x0
 

@@ -8,7 +8,7 @@
 #
 #############################################################################
 
-module SdpLoops
+module BellmanSolvers
 using Interpolations
 
 export index_from_variable, real_index_from_variable
@@ -130,7 +130,7 @@ hazard setting
     the optimal control
 
 """
-function sdp_u_w_loop(sampling_size::Int, samples::Array,
+function exhaustive_search_dh(sampling_size::Int, samples::Array,
                         probas::Array, u_bounds::Array, x_bounds::Array,
                         x_steps::Array, x_dim::Int, product_controls::Array,
                         dynamics::Function, constraints::Function, cost::Function,
@@ -228,9 +228,9 @@ at state x at realization w in a decision hazard setting
     the optimal control
 
 """
-function sdp_dh_get_u(args...)
+function exhaustive_search_dh_get_u(args...)
 
-    return (sdp_u_w_loop(args...)[2],)
+    return (exhaustive_search_dh(args...)[2],)
 
 end
 
@@ -278,7 +278,7 @@ decision setting
     the value function V(x)
 
 """
-function sdp_w_u_loop(sampling_size::Int, samples::Array,
+function exhaustive_search_hd(sampling_size::Int, samples::Array,
                         probas::Array, u_bounds::Array, x_bounds::Array,
                         x_steps::Array, x_dim::Int, product_controls::Array,
                         dynamics::Function, constraints::Function, cost::Function,
@@ -294,7 +294,7 @@ function sdp_w_u_loop(sampling_size::Int, samples::Array,
         w_sample = samples[:, w]
         proba = probas[w]
 
-        uopt, best_V_x_w, admissible_u_w_count = sdp_hd_get_u(u_bounds,
+        uopt, best_V_x_w, admissible_u_w_count = exhaustive_search_hd_get_u(u_bounds,
                                                             x_bounds, x_steps,
                                                             x_dim,
                                                             product_controls,
@@ -357,7 +357,7 @@ at state x at realization w in a hazard decision setting
 * `admissible_u_w_count::Int`:
     the number of admissible couples (u,w)
 """
-function sdp_hd_get_u(u_bounds::Array, x_bounds::Array,
+function exhaustive_search_hd_get_u(u_bounds::Array, x_bounds::Array,
                         x_steps::Array, x_dim::Int, product_controls::Array,
                         dynamics::Function, constraints::Function, cost::Function,
                         Vitp, t::Int, x::Union{Array,Tuple}, w::Union{Array,Tuple},
@@ -394,6 +394,84 @@ function sdp_hd_get_u(u_bounds::Array, x_bounds::Array,
     end
 
     return optimal_u, best_V_x_w, admissible_u_w_count
+end
+
+function linear_program_dh(sampling_size::Int, samples::Array,
+                        probas::Array, u_bounds::Array, x_bounds::Array,
+                        x_steps::Array, x_dim::Int, dynamics::Function,
+                        constraints::Function, cost::Function,
+                        Vcuts::PolyhedralFunction, t::Int, x::Union{Array,Tuple})
+
+    m = Model(solver = solver)
+
+    @variable(m, u_bounds[i][2] <= u[i=1:u_dim] <= u_bounds[i][2] )
+    @variable(m, alpha[1:sampling_size])
+    @variable(m, x_bounds[i][2] .<= xf[1:sampling_size, i=1:u_dim] .<= x_bounds[i][2] )
+
+    for iw in 1:sampling_size
+        w = samples[iw]
+        pw = probas[iw]
+
+        @constraint(m, xf[iw,:] .== dynamics(t,x,u, w) )
+        if ~isnull(equalityConstraints)
+            @constraint(m, get(equalityConstraints)(t, x, u, w) .== 0)
+        end
+        if ~isnull(inequalityConstraints)
+            @constraint(m, get(inequalityConstraints)(t, x, u, w) .<= 0)
+        end
+
+        for k in 1:Vcuts.numCuts
+            @constraint(m, Vcuts.betas[k] + dot(lambda[k,:], xf[iw,:]) <= alpha[iw,:])
+        end
+    end
+
+    @objective(m, Min, sum(probas[iw]*(cost(t, x, u, samples[iw]) + alpha[iw]) for iw in 1:sampling_size))
+
+    solve(m)
+
+    expected_V = getobjectivevalue(m)
+
+    optimal_u = getvalue(u)
+
+    return expected_V, optimal_u
+end
+
+function linear_program_hd(sampling_size::Int, samples::Array,
+                        probas::Array, u_bounds::Array, x_bounds::Array,
+                        x_steps::Array, x_dim::Int, dynamics::Function,
+                        constraints::Function, cost::Function,
+                        Vcuts::PolyhedralFunction, t::Int, x::Union{Array,Tuple})
+
+    m = Model(solver = solver)
+
+    @variable(m, u_bounds[i][2] <= u[1:sampling_size, i=1:u_dim] <= u_bounds[i][2] )
+    @variable(m, alpha[1:sampling_size])
+    @variable(m, x_bounds[i][2] .<= xf[1:sampling_size, i=1:u_dim] .<= x_bounds[i][2] )
+
+    for iw in 1:sampling_size
+        w = samples[iw]
+        pw = probas[iw]
+
+        @constraint(m, xf[iw,:] .== dynamics(t,x,u[iw,:], w) )
+        if ~isnull(equalityConstraints)
+            @constraint(m, get(equalityConstraints)(t, x, u[iw,:], w) .== 0)
+        end
+        if ~isnull(inequalityConstraints)
+            @constraint(m, get(inequalityConstraints)(t, x, u[iw,:], w) .<= 0)
+        end
+
+        for k in 1:Vcuts.numCuts
+            @constraint(m, Vcuts.betas[k] + dot(lambda[k,:], xf[iw,:]) <= alpha[iw,:])
+        end
+    end
+
+    @objective(m, Min, sum(probas[iw]*(cost(t, x, u[iw,:], samples[iw]) + alpha[iw]) for iw in 1:sampling_size))
+
+    solve(m)
+
+    expected_V = getobjectivevalue(m)
+
+    return expected_V
 end
 
 end

@@ -47,6 +47,7 @@ Compute the cartesian products of discretized state spaces
 
 """
 function generate_state_grid(model::SPModel, param::SDPparameters, t::Int = -1 )
+
     xlim = model.xlim
     xdim = model.dimStates
     xsteps = param.stateSteps
@@ -56,15 +57,14 @@ function generate_state_grid(model::SPModel, param::SDPparameters, t::Int = -1 )
         end
         if t<0
             warn("Time step is not provided for state grid. Defaulted to 1")
-            return Base.product([xlim[i,1][1]:xsteps[i,1]:xlim[i,1][2] for i in 1:xdim]...)
+            return collect(Base.product([xlim[i,1][1]:xsteps[i,1]:xlim[i,1][2] for i in 1:xdim]...))
         else
-            return Base.product([xlim[i,t][1]:xsteps[i,1]:xlim[i,t][2] for i in 1:xdim]...)
+            return collect(Base.product([xlim[i,t][1]:xsteps[i,1]:xlim[i,t][2] for i in 1:xdim]...))
         end
     else
-        return Base.product([xlim[i,t][1]:xsteps[i,t]:xlim[i,t][2] for i in 1:xdim]...)
+        return collect(Base.product([xlim[i][1]:xsteps[i]:xlim[i][2] for i in 1:xdim]...))
     end
 
-    return collect(product_states)
 end
 
 """
@@ -94,8 +94,8 @@ function generate_control_grid(model::SPModel, param::SDPparameters,
         product_controls = Base.product([model.ulim[i][1]:param.controlSteps[i]:model.ulim[i][2] for i in 1:model.dimControls]...)
     else
         product_controls = model.build_search_space(t, x, w)
-
     end
+
     return collect(product_controls)
 end
 
@@ -215,7 +215,7 @@ function compute_value_functions_grid(model::StochDynProgModel,
 
     #Compute final value functions
     for x in product_states
-        ind_x = SdpLoops.index_from_variable(x, x_bounds, x_steps)
+        ind_x = BellmanSolvers.index_from_variable(x, x_bounds, x_steps)
         V[ind_x..., TF] = model.finalCostFunction(x)
     end
 
@@ -226,13 +226,13 @@ function compute_value_functions_grid(model::StochDynProgModel,
     end
 
     if param.infoStructure == "DH"
-        get_V_t_x = SdpLoops.sdp_u_w_loop
+        get_V_t_x = BellmanSolvers.exhaustive_search_dh
     elseif param.infoStructure == "HD"
-        get_V_t_x = SdpLoops.sdp_w_u_loop
+        get_V_t_x = BellmanSolvers.exhaustive_search_hd
     else
         warn("Information structure should be DH or HD. Defaulted to DH")
         param.infoStructure = "DH"
-        get_V_t_x = SdpLoops.sdp_u_w_loop
+        get_V_t_x = BellmanSolvers.exhaustive_search_dh
     end
 
     #Construct a progress meter
@@ -263,7 +263,7 @@ function compute_value_functions_grid(model::StochDynProgModel,
 
         @sync @parallel for indx in 1:length(product_states)
             x = product_states[indx]
-            ind_x = SdpLoops.index_from_variable(x, x_bounds, x_steps)
+            ind_x = BellmanSolvers.index_from_variable(x, x_bounds, x_steps)
             V[ind_x..., t] = get_V_t_x(sampling_size, samples, probas,
                                             u_bounds, x_bounds, x_steps, x_dim,
                                             product_controls, dynamics,
@@ -292,7 +292,7 @@ Get the optimal value of the problem from the optimal Bellman Function
 """
 function get_bellman_value(model::SPModel, param::SDPparameters,
                             V::Union{SharedArray, Array})
-    ind_x0 = SdpLoops.real_index_from_variable(model.initialState, model.xlim, param.stateSteps)
+    ind_x0 = BellmanSolvers.real_index_from_variable(model.initialState, model.xlim, param.stateSteps)
     Vi = value_function_interpolation(model.dimStates, V, 1)
     println(ind_x0)
     return Vi[ind_x0...,1]
@@ -331,7 +331,7 @@ function get_control(model::SPModel,param::SDPparameters,
 
     if w==nothing
         law = sdp_model.noises
-        get_u = SdpLoops.sdp_dh_get_u
+        get_u = BellmanSolvers.exhaustive_search_dh_get_u
         if (param.expectation_computation=="MonteCarlo")
             sampling_size = param.monteCarloSize
             push!(args,sampling_size,
@@ -342,7 +342,7 @@ function get_control(model::SPModel,param::SDPparameters,
         end
         push!(optional_args, sdp_model.build_search_space)
     else
-        get_u = SdpLoops.sdp_hd_get_u
+        get_u = BellmanSolvers.exhaustive_search_hd_get_u
         push!(optional_args, w, sdp_model.build_search_space)
     end
 
@@ -416,12 +416,12 @@ function forward_simulations(model::SPModel,
     info = param.infoStructure
 
     if  info == "DH"
-        get_u = SdpLoops.sdp_dh_get_u
+        get_u = BellmanSolvers.exhaustive_search_dh_get_u
     elseif info == "HD"
-        get_u = SdpLoops.sdp_hd_get_u
+        get_u = BellmanSolvers.exhaustive_search_hd_get_u
     else
         warn("Information structure should be DH or HD. Defaulted to DH")
-        get_u = SdpLoops.sdp_dh_get_u
+        get_u = BellmanSolvers.exhaustive_search_dh_get_u
     end
 
     build_Ux = Nullable{Function}(SDPmodel.build_search_space)

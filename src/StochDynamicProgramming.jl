@@ -10,7 +10,6 @@
 __precompile__()
 
 module StochDynamicProgramming
-include("sdpLoops.jl")
 
 using MathProgBase, JuMP, Distributions, StochasticDualDynamicProgramming
 using DocStringExtensions
@@ -25,6 +24,7 @@ export solve_SDDP,
         sampling, get_control, get_bellman_value,
         benchmark_parameters, SDDPInterface
 
+include("bellmansolvers.jl")
 include("noises.jl")
 include("objects.jl")
 include("params.jl")
