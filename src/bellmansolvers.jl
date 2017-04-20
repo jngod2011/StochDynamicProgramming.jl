@@ -9,7 +9,7 @@
 #############################################################################
 
 module BellmanSolvers
-using Interpolations
+using Interpolations, JuMP
 
 export index_from_variable, real_index_from_variable
 
@@ -400,13 +400,13 @@ function linear_program_dh(sampling_size::Int, samples::Array,
                         probas::Array, u_bounds::Array, x_bounds::Array,
                         x_steps::Array, x_dim::Int, dynamics::Function,
                         constraints::Function, cost::Function,
-                        Vcuts::PolyhedralFunction, t::Int, x::Union{Array,Tuple})
+                        Vcuts, t::Int, x::Union{Array,Tuple})
 
     m = Model(solver = solver)
 
     @variable(m, u_bounds[i][2] <= u[i=1:u_dim] <= u_bounds[i][2] )
     @variable(m, alpha[1:sampling_size])
-    @variable(m, x_bounds[i][2] .<= xf[1:sampling_size, i=1:u_dim] .<= x_bounds[i][2] )
+    @variable(m, x_bounds[i][2] <= xf[1:sampling_size, i=1:u_dim] <= x_bounds[i][2] )
 
     for iw in 1:sampling_size
         w = samples[iw]
@@ -440,13 +440,13 @@ function linear_program_hd(sampling_size::Int, samples::Array,
                         probas::Array, u_bounds::Array, x_bounds::Array,
                         x_steps::Array, x_dim::Int, dynamics::Function,
                         constraints::Function, cost::Function,
-                        Vcuts::PolyhedralFunction, t::Int, x::Union{Array,Tuple})
+                        Vcuts, t::Int, x::Union{Array,Tuple})
 
     m = Model(solver = solver)
 
     @variable(m, u_bounds[i][2] <= u[1:sampling_size, i=1:u_dim] <= u_bounds[i][2] )
     @variable(m, alpha[1:sampling_size])
-    @variable(m, x_bounds[i][2] .<= xf[1:sampling_size, i=1:u_dim] .<= x_bounds[i][2] )
+    @variable(m, x_bounds[i][2] <= xf[1:sampling_size, i=1:u_dim] <= x_bounds[i][2] )
 
     for iw in 1:sampling_size
         w = samples[iw]

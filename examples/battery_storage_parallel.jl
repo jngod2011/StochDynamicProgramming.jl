@@ -102,7 +102,7 @@ println("library loaded")
     controlSteps = [0.001]
     infoStruct = "HD" # noise at time t is not known before taking the decision at time t
 
-    paramSDP = StochDynamicProgramming.SDPparameters(spmodel, stateSteps,
+    paramSDP = StochDynamicProgramming.SDPparameters(stateSteps,
                                                     controlSteps, infoStruct)
 end
 

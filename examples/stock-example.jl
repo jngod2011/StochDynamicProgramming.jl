@@ -86,7 +86,7 @@ if run_sdp
     stateSteps = [step] # discretization step of the state
     controlSteps = [step] # discretization step of the control
     infoStruct = "HD" # noise at time t is known before taking the decision at time t
-    paramSDP = SDPparameters(spmodel, stateSteps, controlSteps, infoStruct)
+    paramSDP = SDPparameters(stateSteps, controlSteps, infoStruct)
     Vs = solve_dp(spmodel,paramSDP, 1)
     value_sdp = StochDynamicProgramming.get_bellman_value(spmodel,paramSDP,Vs)
     println("Value obtained by SDP: "*string(round(value_sdp,4)))

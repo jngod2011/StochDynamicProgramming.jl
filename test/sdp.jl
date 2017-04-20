@@ -121,10 +121,8 @@ end
                                     finalCostFunction, dynamic,
                                     constraints, aleas);
 
-    paramsSDP = StochDynamicProgramming.SDPparameters(modelSDP, stateSteps,
-                                                        controlSteps,
-                                                        "HD",
-                                                        "Exact");
+    paramsSDP = StochDynamicProgramming.SDPparameters(stateSteps, controlSteps,
+                                                      "HD", "Exact");
 
 
         @testset "Compare StochDynProgModel constructors" begin
@@ -174,7 +172,7 @@ end
 
             V_sdp = solve_dp(modelSDP, paramsSDP, false);
 
-            @test size(V_sdp) == (paramsSDP.stateVariablesSizes..., TF)
+            @test size(V_sdp) == (11,11, TF)
 
 
             costs_sdp2, stocks_sdp2, controls_sdp2 = StochDynamicProgramming.forward_simulations(modelSDP,
@@ -225,7 +223,6 @@ end
             @test get_bellman_value(modelSDP, paramsSDP, V_sdp2) == V_sdp2[ind...,1]
             modelSDP.initialState = x0
 
-            @test size(V_sdp) == (paramsSDP.stateVariablesSizes..., TF)
             @test V_sdp2[1,1,1] <= V_sdp3[1,1,1]
 
             state_ref = zeros(2)

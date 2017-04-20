@@ -119,8 +119,6 @@ type StochDynProgModel <: SPModel
     constraints::Function
     noises::Vector{NoiseLaw}
 
-    build_search_space::Nullable{Function}
-
     function StochDynProgModel(model::LinearSPModel, final, cons)
         if isa(model.costFunctions, Function)
             cost = model.costFunctions
@@ -140,49 +138,29 @@ type StochDynProgModel <: SPModel
     end
 
     function StochDynProgModel(TF, x_bounds, u_bounds, x0, cost_t,
-                                finalCostFunction, dynamic, constraints, aleas, search_space_builder = Nullable{Function}())
+                                finalCostFunction, dynamic, constraints, aleas)
         return new(TF, length(u_bounds), length(x_bounds), length(aleas[1].support[:, 1]),
                     x_bounds, u_bounds, x0, cost_t, finalCostFunction, dynamic,
-                    constraints, aleas, search_space_builder)
+                    constraints, aleas)
     end
 
 end
 
 
 type SDPparameters
-    stateSteps
-    controlSteps
-    totalStateSpaceSize
-    totalControlSpaceSize
-    stateVariablesSizes
-    controlVariablesSizes
-    monteCarloSize
-    infoStructure
-    expectation_computation
+    stateSteps::Array
+    controlSteps::Array
+    infoStructure::String
+    expectation_computation::String
+    monteCarloSize::Int
+    build_search_space::Nullable{Function}
 
-    function SDPparameters(model, stateSteps, controlSteps, infoStruct,
-                            expectation_computation="Exact" ,monteCarloSize=1000)
+    function SDPparameters(stateSteps, controlSteps, infoStruct,
+                            expectation_computation="Exact" ,monteCarloSize=1000,
+                            search_space_builder = Nullable{Function}())
 
-        stateVariablesSizes = zeros(Int64, length(stateSteps))
-        controlVariablesSizes = zeros(Int64, length(controlSteps))
-        totalStateSpaceSize = 1
-        totalControlSpaceSize = 1
-        for i=1:length(stateSteps)
-            stateVariablesSizes[i] = round(Int64,1 +
-                                    (model.xlim[i][2]-model.xlim[i][1])/stateSteps[i])
-            totalStateSpaceSize *= stateVariablesSizes[i]
-        end
-
-        for i=1:length(controlSteps)
-            controlVariablesSizes[i] = round(Int64, 1 +
-                                    (model.ulim[i][2]-model.ulim[i][1])/controlSteps[i])
-            totalControlSpaceSize *= controlVariablesSizes[i]
-        end
-
-        return new(stateSteps, controlSteps, totalStateSpaceSize,
-                    totalControlSpaceSize, stateVariablesSizes,
-                    controlVariablesSizes, monteCarloSize, infoStruct,
-                    expectation_computation)
+        return new(stateSteps, controlSteps, infoStruct,
+                    expectation_computation, monteCarloSize, search_space_builder)
     end
 
 end

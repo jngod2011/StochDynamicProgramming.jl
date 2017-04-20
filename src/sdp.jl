@@ -90,10 +90,10 @@ function generate_control_grid(model::SPModel, param::SDPparameters,
                                 x::Nullable{Array} = Nullable{Array}(),
                                 w::Nullable{Array} = Nullable{Array}())
 
-    if (isnull(model.build_search_space))||(isnull(t))||(isnull(x))
+    if (isnull(param.build_search_space))||(isnull(t))||(isnull(x))
         product_controls = Base.product([model.ulim[i][1]:param.controlSteps[i]:model.ulim[i][2] for i in 1:model.dimControls]...)
     else
-        product_controls = model.build_search_space(t, x, w)
+        product_controls = param.build_search_space(t, x, w)
     end
 
     return collect(product_controls)
@@ -204,14 +204,14 @@ function compute_value_functions_grid(model::StochDynProgModel,
 
     law = model.noises
 
-    build_Ux = model.build_search_space
+    build_Ux = param.build_search_space
 
     #Compute cartesian product spaces
     product_states = generate_state_grid(model, param)
 
     product_controls = generate_control_grid(model, param)
 
-    V = SharedArray{Float64}(zeros(Float64, param.stateVariablesSizes..., TF))
+    V = SharedArray{Float64}(zeros(Float64, size(product_states)..., TF))
 
     #Compute final value functions
     for x in product_states
@@ -340,10 +340,10 @@ function get_control(model::SPModel,param::SDPparameters,
         else
             push!(args,law[t].supportSize, law[t].support, law[t].proba)
         end
-        push!(optional_args, sdp_model.build_search_space)
+        push!(optional_args, param.build_search_space)
     else
         get_u = BellmanSolvers.exhaustive_search_hd_get_u
-        push!(optional_args, w, sdp_model.build_search_space)
+        push!(optional_args, w, param.build_search_space)
     end
 
     push!(args, sdp_model.ulim, sdp_model.xlim, param.stateSteps,
@@ -424,7 +424,7 @@ function forward_simulations(model::SPModel,
         get_u = BellmanSolvers.exhaustive_search_dh_get_u
     end
 
-    build_Ux = Nullable{Function}(SDPmodel.build_search_space)
+    build_Ux = Nullable{Function}(param.build_search_space)
 
 
     @sync @parallel for s in 1:nb_scenarios
