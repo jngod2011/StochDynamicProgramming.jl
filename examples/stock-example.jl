@@ -61,7 +61,7 @@ end
 ######## Setting up the SPmodel
 s_bounds = [(0, 1)] 			# bounds on the state
 u_bounds = [(CONTROL_MIN, CONTROL_MAX)] # bounds on controls
-spmodel = LinearSPModel(N_STAGES,u_bounds,[S0],cost_t,dynamic,xi_laws,
+spmodel = StochDynModel(N_STAGES,u_bounds,[S0],cost_t,dynamic,xi_laws,
                         xbounds = s_bounds)
 println("Model set up")
 
@@ -85,8 +85,7 @@ if run_sdp
     println("Starting resolution by SDP")
     stateSteps = [step] # discretization step of the state
     controlSteps = [step] # discretization step of the control
-    infoStruct = "HD" # noise at time t is known before taking the decision at time t
-    paramSDP = SDPparameters(stateSteps, controlSteps, infoStruct)
+    paramSDP = SDPparameters(stateSteps, controlSteps, infoStructure = "HD")
     Vs = solve_dp(spmodel,paramSDP, 1)
     value_sdp = StochDynamicProgramming.get_bellman_value(spmodel,paramSDP,Vs)
     println("Value obtained by SDP: "*string(round(value_sdp,4)))

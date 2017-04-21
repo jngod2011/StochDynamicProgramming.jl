@@ -90,10 +90,10 @@ function generate_control_grid(model::SPModel, param::SDPparameters,
                                 x::Nullable{Array} = Nullable{Array}(),
                                 w::Nullable{Array} = Nullable{Array}())
 
-    if (isnull(param.build_search_space))||(isnull(t))||(isnull(x))
+    if (isnull(param.buildSearchSpace))||(isnull(t))||(isnull(x))
         product_controls = Base.product([model.ulim[i][1]:param.controlSteps[i]:model.ulim[i][2] for i in 1:model.dimControls]...)
     else
-        product_controls = param.build_search_space(t, x, w)
+        product_controls = param.buildSearchSpace(t, x, w)
     end
 
     return collect(product_controls)
@@ -219,7 +219,7 @@ function compute_value_functions_grid(model::SPModel,
 
     law = model.noises
 
-    build_Ux = param.build_search_space
+    build_Ux = param.buildSearchSpace
 
     #Compute cartesian product spaces
     product_states = generate_state_grid(model, param)
@@ -333,13 +333,13 @@ function get_control(model::SPModel,param::SDPparameters,
 
         push!(args, build_marginal_law(model, param, t)...)
 
-        push!(optional_args, param.build_search_space)
+        push!(optional_args, param.buildSearchSpace)
 
     else
 
         get_u = BellmanSolvers.exhaustive_search_hd_get_u
 
-        push!(optional_args, w, param.build_search_space)
+        push!(optional_args, w, param.buildSearchSpace)
 
     end
 
@@ -425,7 +425,7 @@ function forward_simulations(model::SPModel,
         get_u = BellmanSolvers.exhaustive_search_dh_get_u
     end
 
-    build_Ux = Nullable{Function}(param.build_search_space)
+    build_Ux = Nullable{Function}(param.buildSearchSpace)
 
 
     @sync @parallel for s in 1:nb_scenarios

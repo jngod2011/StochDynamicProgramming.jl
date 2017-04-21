@@ -30,7 +30,7 @@ function fetchnewcuts!(V::PolyhedralFunction)
     return β, λ
 end
 
-type LinearSPModel <: SPModel
+type StochDynModel <: SPModel
     # problem dimension
     stageNumber::Int64
     dimControls::Int64
@@ -56,7 +56,7 @@ type LinearSPModel <: SPModel
 
     IS_SMIP::Bool
 
-    function LinearSPModel(nstage,             # number of stages
+    function StochDynModel(nstage,             # number of stages
                            ubounds,            # bounds of control
                            x0,                 # initial state
                            cost,               # cost function
@@ -103,12 +103,13 @@ function set_state_bounds(model::SPModel, xbounds)
 end
 
 type SDPparameters
+
     stateSteps::Array
     controlSteps::Array
     infoStructure::String
     expectation_computation::String
     monteCarloSize::Int
-    build_search_space::Nullable{Function}
+    buildSearchSpace::Nullable{Function}
 
     function SDPparameters(stateSteps, controlSteps; infoStructure = "DH",
                             expectation_computation="Exact" ,monteCarloSize=1000,

@@ -76,10 +76,6 @@ println("library loaded")
         return COSTS[t] * max(0, DEMAND[t] + u[1] - xi[1])
     end
 
-    function constraint(t, x, u, xi)
-    	return true
-    end
-
     function finalCostFunction(x)
     	return(0)
     end
@@ -87,14 +83,14 @@ println("library loaded")
     ######## Setting up the SPmodel
     s_bounds = [(STATE_MIN, STATE_MAX)]
     u_bounds = [(CONTROL_MIN, CONTROL_MAX)]
-    spmodel = StochDynamicProgramming.StochDynProgModel(N_STAGES, s_bounds,
-                                                                    u_bounds,
-                                                                    [S0],
-                                                                    cost_t,
-                                                                    finalCostFunction,
-                                                                    dynamic,
-                                                                    constraint,
-                                                                    xi_laws)
+    spmodel = StochDynamicProgramming.StochDynModel(N_STAGES,
+                                                    u_bounds,
+                                                    [S0],
+                                                    cost_t,
+                                                    dynamic,
+                                                    xi_laws,
+                                                    Vfinal = finalCostFunction,
+                                                    xbounds = s_bounds)
 
     scenarios = StochDynamicProgramming.simulate_scenarios(xi_laws,1000)
 

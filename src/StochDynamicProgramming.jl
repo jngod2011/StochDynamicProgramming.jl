@@ -17,7 +17,7 @@ using CutPruners
 
 export solve_SDDP,
         NoiseLaw, simulate_scenarios,
-        SDDPparameters, LinearSPModel, set_state_bounds,
+        SDDPparameters, StochDynModel, set_state_bounds,
         extensive_formulation,
         PolyhedralFunction, forward_simulations,
         StochDynProgModel, SDPparameters, solve_dp,

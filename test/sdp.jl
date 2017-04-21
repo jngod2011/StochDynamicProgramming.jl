@@ -114,7 +114,7 @@ end
     stateSteps = [2,2];
     controlSteps = [2,2];
 
-    modelSDP = LinearSPModel(TF, u_bounds,
+    modelSDP = StochDynModel(TF, u_bounds,
                                     x0, cost_t,
                                     dynamic, aleas,
                                     Vfinal = finalCostFunction,
