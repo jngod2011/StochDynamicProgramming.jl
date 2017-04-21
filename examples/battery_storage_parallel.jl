@@ -37,9 +37,8 @@ println("library loaded")
 # We have to define the instance on all the workers (processes)
 @everywhere begin
 
-    run_sdp = true
-
     ######## Stochastic Model  Parameters  ########
+    srand(1234) #Seed is essential when defining random variables accross multiple workers
     const N_STAGES = 50
     const COSTS = rand(N_STAGES)
     const DEMAND = rand(N_STAGES)
@@ -61,10 +60,10 @@ println("library loaded")
     const rho_dc = 0.97
 
     # create law of noises
-    proba = 1/N_XI*ones(N_XI) # uniform probabilities
-    xi_support = collect(linspace(XI_MIN,XI_MAX,N_XI))
-    xi_law = StochDynamicProgramming.NoiseLaw(xi_support, proba)
-    xi_laws = StochDynamicProgramming.NoiseLaw[xi_law for t in 1:N_STAGES-1]
+    const proba = 1/N_XI*ones(N_XI) # uniform probabilities
+    const xi_support = collect(linspace(XI_MIN,XI_MAX,N_XI))
+    const xi_law = StochDynamicProgramming.NoiseLaw(xi_support, proba)
+    const xi_laws = StochDynamicProgramming.NoiseLaw[xi_law for t in 1:N_STAGES-1]
 
     # Define dynamic of the stock:
     function dynamic(t, x, u, xi)
@@ -76,10 +75,6 @@ println("library loaded")
         return COSTS[t] * max(0, DEMAND[t] + u[1] - xi[1])
     end
 
-    function finalCostFunction(x)
-    	return(0)
-    end
-
     ######## Setting up the SPmodel
     s_bounds = [(STATE_MIN, STATE_MAX)]
     u_bounds = [(CONTROL_MIN, CONTROL_MAX)]
@@ -89,23 +84,22 @@ println("library loaded")
                                                     cost_t,
                                                     dynamic,
                                                     xi_laws,
-                                                    Vfinal = finalCostFunction,
                                                     xbounds = s_bounds)
 
     scenarios = StochDynamicProgramming.simulate_scenarios(xi_laws,1000)
 
     stateSteps = [0.01]
     controlSteps = [0.001]
-    infoStruct = "HD" # noise at time t is not known before taking the decision at time t
 
     paramSDP = StochDynamicProgramming.SDPparameters(stateSteps,
-                                                    controlSteps, infoStruct)
+                                                    controlSteps,
+                                                    infoStructure = "HD")
 end
 
-Vs = StochDynamicProgramming.solve_dp(spmodel,paramSDP, 1)
+@time  Vs = StochDynamicProgramming.solve_dp(spmodel,paramSDP, 1)
 
 lb_sdp = StochDynamicProgramming.get_bellman_value(spmodel,paramSDP,Vs)
 println("Value obtained by SDP: "*string(lb_sdp))
-costsdp, states, stocks = StochDynamicProgramming.forward_simulations(spmodel,paramSDP,Vs,scenarios)
+@time costsdp, states, stocks = StochDynamicProgramming.forward_simulations(spmodel,paramSDP,Vs,scenarios)
 println(mean(costsdp))
 
