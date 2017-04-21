@@ -67,7 +67,6 @@ end
 
     # Define cost corresponding to each timestep:
     cost_t(t, x, u, w) = COST[t] * (u[1])
-    constraints(t, x, u, w) = true
     finalCostFunction(x) = 0.
 
     """Build admissible scenarios for water inflow over the time horizon."""
@@ -114,55 +113,16 @@ end
 
     stateSteps = [2,2];
     controlSteps = [2,2];
-    monteCarloSize = 2;
 
-    modelSDP = StochDynProgModel(TF, x_bounds, u_bounds,
+    modelSDP = LinearSPModel(TF, u_bounds,
                                     x0, cost_t,
-                                    finalCostFunction, dynamic,
-                                    constraints, aleas);
+                                    dynamic, aleas,
+                                    Vfinal = finalCostFunction,
+                                    xbounds = x_bounds);
 
     paramsSDP = StochDynamicProgramming.SDPparameters(stateSteps, controlSteps,
-                                                      "HD", "Exact");
+                                                      infoStructure = "HD");
 
-
-        @testset "Compare StochDynProgModel constructors" begin
-
-
-            modelSDPPiecewise = StochDynamicProgramming.LinearSPModel(TF,
-            u_bounds, x0,
-            [cost_t],
-            dynamic, aleas)
-            set_state_bounds(modelSDPPiecewise, x_bounds)
-
-            modelSDPLinear = StochDynamicProgramming.LinearSPModel(TF,
-                                                                   u_bounds, x0,
-                                                                   cost_t,
-                                                                   dynamic, aleas)
-
-            set_state_bounds(modelSDPLinear, x_bounds)
-
-
-            test_costs = true
-            x = x0
-            u = [1, 1]
-            w = [4]
-
-            convertedSDPmodel = StochDynamicProgramming.build_sdpmodel_from_spmodel(modelSDPPiecewise)
-
-            set_state_bounds(modelSDPLinear, x_bounds)
-
-
-            for t in 1:TF-1
-                test_costs &= (modelSDPLinear.costFunctions(t,x,u,w)==modelSDP.costFunctions(t,x,u,w))
-                test_costs &= (modelSDPPiecewise.costFunctions[1](t,x,u,w)==modelSDP.costFunctions(t,x,u,w))
-                test_costs &= (modelSDPPiecewise.costFunctions[1](t,x,u,w)==convertedSDPmodel.costFunctions(t,x,u,w))
-            end
-
-            @test test_costs
-
-            @test convertedSDPmodel.constraints(1,x,u,w)
-
-        end
 
         @testset "Solve and simulate using SDP" begin
             paramsSDP.infoStructure = "anything"

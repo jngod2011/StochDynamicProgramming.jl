@@ -147,7 +147,7 @@ function build_final_cost_function(costFunctions::Union{Function, Array{Function
     end
 end
 
-function initialize_final_value(final_cost, x_grid::Array, x_bounds,
+function initialize_final_value!(final_cost, x_grid::Array, x_bounds,
                                 x_steps, V::Union{Array, SharedArray})
     for x in x_grid
         ind_x = BellmanSolvers.index_from_variable(x, x_bounds, x_steps)
@@ -169,6 +169,16 @@ function build_contraints_function(ineq_cons::Nullable{Function}, eq_cons::Nulla
     end
 end
 
+function build_marginal_law(model, param, t)
+    law = model.noises
+
+    if (param.expectation_computation=="MonteCarlo")
+        return (param.monteCarloSize, [sampling(law,t) for i in 1:sampling_size],
+                (1/sampling_size)*ones(sampling_size))
+    else
+        return (law[t].supportSize, law[t].support, law[t].proba)
+    end
+end
 
 """
 Dynamic Programming algorithm to compute optimal value functions
@@ -192,7 +202,6 @@ function compute_value_functions_grid(model::SPModel,
                                         display=0::Int64)
 
     TF = model.stageNumber
-    next_state = zeros(Float64, model.dimStates)
 
     u_bounds = model.ulim
     x_bounds = model.xlim
@@ -220,20 +229,12 @@ function compute_value_functions_grid(model::SPModel,
     V = SharedArray{Float64}(zeros(Float64, size(product_states)..., TF))
 
     #Compute final value functions
-    initialize_final_value(fin_cost, product_states, x_bounds, x_steps, V)
+    initialize_final_value!(fin_cost, product_states, x_bounds, x_steps, V)
 
-    if param.expectation_computation!="MonteCarlo" && param.expectation_computation!="Exact"
-        warn("param.expectation_computation should be 'MonteCarlo' or 'Exact'.
-                Defaulted to 'exact'")
-        param.expectation_computation="Exact"
-    end
-
-    if param.infoStructure == "DH"
-        get_V_t_x = BellmanSolvers.exhaustive_search_dh
-    elseif param.infoStructure == "HD"
+    if param.infoStructure == "HD"
         get_V_t_x = BellmanSolvers.exhaustive_search_hd
     else
-        warn("Information structure should be DH or HD. Defaulted to DH")
+        param.infoStructure == "DH" || warn("Information structure defaulted to DH")
         param.infoStructure = "DH"
         get_V_t_x = BellmanSolvers.exhaustive_search_dh
     end
@@ -248,19 +249,9 @@ function compute_value_functions_grid(model::SPModel,
     # Loop over time:
     for t = (TF-1):-1:1
 
-        if display > 0
-            next!(p)
-        end
+        display == 0 || next!(p)
 
-        if (param.expectation_computation=="MonteCarlo")
-            sampling_size = param.monteCarloSize
-            samples = [sampling(law,t) for i in 1:sampling_size]
-            probas = (1/sampling_size)
-        else
-            sampling_size = law[t].supportSize
-            samples = law[t].support
-            probas = law[t].proba
-        end
+        sampling_size, samples, probas = build_marginal_law(model, param, t)
 
         Vitp = value_function_interpolation(x_dim, V, t+1)
 
@@ -337,23 +328,22 @@ function get_control(model::SPModel,param::SDPparameters,
                                             model.equalityConstraints)
 
     if w==nothing
-        law = model.noises
+
         get_u = BellmanSolvers.exhaustive_search_dh_get_u
-        if (param.expectation_computation=="MonteCarlo")
-            sampling_size = param.monteCarloSize
-            push!(args,sampling_size,
-                    [sampling(law,t) for i in 1:sampling_size],
-                    (1./sampling_size)*ones(sampling_size))
-        else
-            push!(args,law[t].supportSize, law[t].support, law[t].proba)
-        end
+
+        push!(args, build_marginal_law(model, param, t)...)
+
         push!(optional_args, param.build_search_space)
+
     else
+
         get_u = BellmanSolvers.exhaustive_search_hd_get_u
+
         push!(optional_args, w, param.build_search_space)
+
     end
 
-    push!(args, sdp_model.ulim, model.xlim, param.stateSteps,
+    push!(args, model.ulim, model.xlim, param.stateSteps,
             model.dimStates, generate_control_grid(model, param),
             dynamics, constraints, cost,
             value_function_interpolation(model.dimStates, V, t+1), t, x)

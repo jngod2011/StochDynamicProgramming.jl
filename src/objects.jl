@@ -110,11 +110,16 @@ type SDPparameters
     monteCarloSize::Int
     build_search_space::Nullable{Function}
 
-    function SDPparameters(stateSteps, controlSteps, infoStruct,
+    function SDPparameters(stateSteps, controlSteps; infoStructure = "DH",
                             expectation_computation="Exact" ,monteCarloSize=1000,
                             search_space_builder = Nullable{Function}())
 
-        return new(stateSteps, controlSteps, infoStruct,
+        if (expectation_computation != "Exact") && (expectation_computation != "MonteCarlo")
+            warn("Expectation computation defaulted to Exact")
+            expectation_computation="Exact"
+        end
+
+        return new(stateSteps, controlSteps, infoStructure,
                     expectation_computation, monteCarloSize, search_space_builder)
     end
 
