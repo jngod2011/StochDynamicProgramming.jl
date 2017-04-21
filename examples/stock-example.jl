@@ -85,7 +85,7 @@ if run_sdp
     println("Starting resolution by SDP")
     stateSteps = [step] # discretization step of the state
     controlSteps = [step] # discretization step of the control
-    paramSDP = SDPparameters(stateSteps, controlSteps, infoStructure = "HD")
+    paramSDP = ExhaustiveSdpParameters(stateSteps, controlSteps, infoStructure = "HD")
     Vs = solve_dp(spmodel,paramSDP, 1)
     value_sdp = StochDynamicProgramming.get_bellman_value(spmodel,paramSDP,Vs)
     println("Value obtained by SDP: "*string(round(value_sdp,4)))

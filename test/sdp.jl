@@ -120,7 +120,7 @@ end
                                     Vfinal = finalCostFunction,
                                     xbounds = x_bounds);
 
-    paramsSDP = StochDynamicProgramming.SDPparameters(stateSteps, controlSteps,
+    paramsSDP = StochDynamicProgramming.ExhaustiveSdpParameters(stateSteps, controlSteps,
                                                       infoStructure = "HD");
 
 

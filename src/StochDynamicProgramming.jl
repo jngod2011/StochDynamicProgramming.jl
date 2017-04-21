@@ -20,7 +20,7 @@ export solve_SDDP,
         SDDPparameters, StochDynModel, set_state_bounds,
         extensive_formulation,
         PolyhedralFunction, forward_simulations,
-        StochDynProgModel, SDPparameters, solve_dp,
+        StochDynProgModel, SdpParameters, solve_dp,
         sampling, get_control, get_bellman_value,
         benchmark_parameters, SDDPInterface
 

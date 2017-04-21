@@ -38,7 +38,7 @@ Compute the cartesian products of discretized state spaces
 # Arguments
 * `model::SPmodel`:
     the model of the problem
-* `param::SDPparameters`:
+* `param::SdpParameters`:
     the parameters of the problem
 
 # Return
@@ -46,7 +46,7 @@ Compute the cartesian products of discretized state spaces
     the cartesian product iterators for states
 
 """
-function generate_state_grid(model::SPModel, param::SDPparameters, t::Int = -1 )
+function generate_state_grid(model::SPModel, param::SdpParameters, t::Int = -1 )
 
     xlim = model.xlim
     xdim = model.dimStates
@@ -73,7 +73,7 @@ Compute the cartesian products of discretized control spaces or more complex spa
 # Arguments
 * `model::SPmodel`:
     the model of the problem
-* `param::SDPparameters`:
+* `param::SdpParameters`:
     the parameters of the problem
 * `t::Int`:
     time step of the value function computation
@@ -85,7 +85,7 @@ Compute the cartesian products of discretized control spaces or more complex spa
     the cartesian product iterators for both states and controls
 
 """
-function generate_control_grid(model::SPModel, param::SDPparameters,
+function generate_control_grid(model::SPModel, param::SdpParameters,
                                 t::Nullable{Int} = Nullable{Int}(),
                                 x::Nullable{Array} = Nullable{Array}(),
                                 w::Nullable{Array} = Nullable{Array}())
@@ -108,7 +108,7 @@ The information structure can be Decision Hazard (DH) or Hazard Decision (HD)
 # Arguments
 * `model::SPmodel`:
     the DPSPmodel of our problem
-* `param::SDPparameters`:
+* `param::SdpParameters`:
     the parameters for the SDP algorithm
 * `display::Int`:
     the output display or verbosity parameter
@@ -119,7 +119,7 @@ The information structure can be Decision Hazard (DH) or Hazard Decision (HD)
     of the system at each time step
 
 """
-function solve_dp(model::SPModel, param::SDPparameters, display=0::Int64)
+function solve_dp(model::SPModel, param::SdpParameters, display=0::Int64)
     # Start of the algorithm
     V = compute_value_functions_grid(model, param, display)
     return V
@@ -186,7 +186,7 @@ Dynamic Programming algorithm to compute optimal value functions
 # Parameters
 * `model::StochDynProgModel`:
     the StochDynProgModel of the problem
-* `param::SDPparameters`:
+* `param::SdpParameters`:
     the parameters for the algorithm
 * `display::Int`:
     the output display or verbosity parameter
@@ -198,7 +198,7 @@ Dynamic Programming algorithm to compute optimal value functions
 
 """
 function compute_value_functions_grid(model::SPModel,
-                                        param::SDPparameters,
+                                        param::SdpParameters,
                                         display=0::Int64)
 
     TF = model.stageNumber
@@ -275,7 +275,7 @@ Get the optimal value of the problem from the optimal Bellman Function
 # Arguments
 * `model::SPmodel`:
     the DPSPmodel of our problem
-* `param::SDPparameters`:
+* `param::SdpParameters`:
     the parameters for the SDP algorithm
 * `V::Array{Float64}`:
     the Bellman Functions
@@ -284,7 +284,7 @@ Get the optimal value of the problem from the optimal Bellman Function
 * `V_x0::Float64`:
 
 """
-function get_bellman_value(model::SPModel, param::SDPparameters,
+function get_bellman_value(model::SPModel, param::SdpParameters,
                             V::Union{SharedArray, Array})
     ind_x0 = BellmanSolvers.real_index_from_variable(model.initialState, model.xlim, param.stateSteps)
     Vi = value_function_interpolation(model.dimStates, V, 1)
@@ -299,7 +299,7 @@ hazard case
 # Arguments
 * `model::SPmodel`:
     the DPSPmodel of our problem
-* `param::SDPparameters`:
+* `param::SdpParameters`:
     the parameters for the SDP algorithm
 * `V::Array{Float64}`:
     the Bellman Functions
@@ -314,7 +314,7 @@ hazard case
 * `V_x0::Float64`:
 
 """
-function get_control(model::SPModel,param::SDPparameters,
+function get_control(model::SPModel,param::SdpParameters,
                      V, t::Int64, x::Array, w::Union{Void, Array} = nothing)
 
     args = []
@@ -358,11 +358,11 @@ Simulation of optimal control given an initial state and multiple scenarios
 # Arguments
 * `model::SPmodel`:
     the DPSPmodel of our problem
-* `param::SDPparameters`:
+* `param::SdpParameters`:
     the parameters for the SDP algorithm
 * `scenarios::Array`:
     the scenarios of uncertainties realizations we want to simulate on
-* `X0::SDPparameters`:
+* `X0::SdpParameters`:
     the initial state of the system
 * `V::Array`:
     the vector representing the value functions as functions of the state
@@ -379,7 +379,7 @@ Simulation of optimal control given an initial state and multiple scenarios
     the controls applied to the system at each time step for each scenario
 """
 function forward_simulations(model::SPModel,
-                            param::SDPparameters,
+                            param::SdpParameters,
                             V::Union{SharedArray, Array},
                             scenarios::Array,
                             display=true::Bool)

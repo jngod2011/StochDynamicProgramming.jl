@@ -98,7 +98,7 @@ if run_sdp
     controlSteps = [step for i=1:N_STOCKS] # discretization step of the control
     infoStruct = "HD" # noise at time t is known before taking the decision at time t
 
-    paramSDP = SDPparameters(spmodel, stateSteps, controlSteps, infoStruct)
+    paramSDP = ExhaustiveSdpParameters(spmodel, stateSteps, controlSteps, infoStruct)
     spmodel_sdp = StochDynamicProgramming.build_sdpmodel_from_spmodel(spmodel)
     spmodel_sdp.constraints = constraints_dp
 

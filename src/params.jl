@@ -58,3 +58,28 @@ function check_SDDPparameters(model::SPModel, param::SDDPparameters, verbose=0::
     (verbose > 0) && (model.IS_SMIP) && println("SMIP SDDP")
 end
 
+abstract SdpParameters
+
+type ExhaustiveSdpParameters <: SdpParameters
+
+    stateSteps::Array
+    controlSteps::Array
+    infoStructure::String
+    expectation_computation::String
+    monteCarloSize::Int
+    buildSearchSpace::Nullable{Function}
+
+    function ExhaustiveSdpParameters(stateSteps, controlSteps; infoStructure = "DH",
+                            expectation_computation="Exact" ,monteCarloSize=1000,
+                            search_space_builder = Nullable{Function}())
+
+        if (expectation_computation != "Exact") && (expectation_computation != "MonteCarlo")
+            warn("Expectation computation defaulted to Exact")
+            expectation_computation="Exact"
+        end
+
+        return new(stateSteps, controlSteps, infoStructure,
+                    expectation_computation, monteCarloSize, search_space_builder)
+    end
+
+end

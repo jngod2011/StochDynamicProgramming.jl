@@ -102,30 +102,6 @@ function set_state_bounds(model::SPModel, xbounds)
     end
 end
 
-type SDPparameters
-
-    stateSteps::Array
-    controlSteps::Array
-    infoStructure::String
-    expectation_computation::String
-    monteCarloSize::Int
-    buildSearchSpace::Nullable{Function}
-
-    function SDPparameters(stateSteps, controlSteps; infoStructure = "DH",
-                            expectation_computation="Exact" ,monteCarloSize=1000,
-                            search_space_builder = Nullable{Function}())
-
-        if (expectation_computation != "Exact") && (expectation_computation != "MonteCarlo")
-            warn("Expectation computation defaulted to Exact")
-            expectation_computation="Exact"
-        end
-
-        return new(stateSteps, controlSteps, infoStructure,
-                    expectation_computation, monteCarloSize, search_space_builder)
-    end
-
-end
-
 
 # Define an object to store evolution of solution
 # along iterations:
