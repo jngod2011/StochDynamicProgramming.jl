@@ -83,3 +83,28 @@ type ExhaustiveSdpParameters <: SdpParameters
     end
 
 end
+
+type MathProgSdpParameters <: SdpParameters
+
+    stateSteps::Array
+    solver::MathProgBase.AbstractMathProgSolver
+    programType::String # LP or MILP (SOS2 constraints) or NLP
+    infoStructure::String
+    expectation_computation::String
+    monteCarloSize::Int
+
+    function MathProgSdpParameters(stateSteps::Array, solver; programType = "LP",
+                                infoStructure = "DH",
+                                expectation_computation="Exact",
+                                monteCarloSize=1000)
+
+        if (expectation_computation != "Exact") && (expectation_computation != "MonteCarlo")
+            warn("Expectation computation defaulted to Exact")
+            expectation_computation="Exact"
+        end
+
+        return new(stateSteps, solver, programType, infoStructure,
+                    expectation_computation, monteCarloSize)
+    end
+
+end

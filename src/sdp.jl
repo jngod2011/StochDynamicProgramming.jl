@@ -27,7 +27,7 @@ Compute interpolation of the value function at time t
     the interpolated value function (working as an array with float indexes)
 
 """
-function value_function_interpolation( dim_states::Int, V::Union{SharedArray, Array}, time::Int)
+function value_bspline_interpolation( dim_states::Int, V::Union{SharedArray, Array}, time::Int)
     return interpolate(V[[Colon() for i in 1:dim_states]...,time], BSpline(Linear()), OnGrid())
 end
 
@@ -224,7 +224,6 @@ function compute_value_functions_grid(model::SPModel,
     #Compute cartesian product spaces
     product_states = generate_state_grid(model, param)
 
-    product_controls = generate_control_grid(model, param)
 
     V = SharedArray{Float64}(zeros(Float64, size(product_states)..., TF))
 
@@ -243,9 +242,10 @@ function compute_value_functions_grid(model::SPModel,
     p = 0
     if display > 0
         p = Progress((TF-1), 1)
-        println("[SDP] Starting value functions computation:")
+        println("Starting resolution by SDP")
     end
 
+    product_controls = generate_control_grid(model, param)
     # Loop over time:
     for t = (TF-1):-1:1
 
@@ -253,7 +253,7 @@ function compute_value_functions_grid(model::SPModel,
 
         sampling_size, samples, probas = build_marginal_law(model, param, t)
 
-        Vitp = value_function_interpolation(x_dim, V, t+1)
+        Vitp = value_bspline_interpolation(x_dim, V, t+1)
 
         @sync @parallel for indx in 1:length(product_states)
             x = product_states[indx]
@@ -287,7 +287,7 @@ Get the optimal value of the problem from the optimal Bellman Function
 function get_bellman_value(model::SPModel, param::SdpParameters,
                             V::Union{SharedArray, Array})
     ind_x0 = BellmanSolvers.real_index_from_variable(model.initialState, model.xlim, param.stateSteps)
-    Vi = value_function_interpolation(model.dimStates, V, 1)
+    Vi = value_bspline_interpolation(model.dimStates, V, 1)
     return Vi[ind_x0...,1]
 end
 
@@ -346,7 +346,7 @@ function get_control(model::SPModel,param::SdpParameters,
     push!(args, model.ulim, model.xlim, param.stateSteps,
             model.dimStates, generate_control_grid(model, param),
             dynamics, constraints, cost,
-            value_function_interpolation(model.dimStates, V, t+1), t, x)
+            value_bspline_interpolation(model.dimStates, V, t+1), t, x)
 
     return get_u(args..., optional_args...)[1]
 end
@@ -438,7 +438,7 @@ function forward_simulations(model::SPModel,
 
             x = states[t,s,:]
             w = current_scen[t,:]
-            args_t = [value_function_interpolation(x_dim, V, t+1), t, x]
+            args_t = [value_bspline_interpolation(x_dim, V, t+1), t, x]
 
             if info == "DH"
                 if (param.expectation_computation=="MonteCarlo")

@@ -400,12 +400,12 @@ function linear_program_dh(sampling_size::Int, samples::Array,
                         probas::Array, u_bounds::Array, x_bounds::Array,
                         x_steps::Array, x_dim::Int, dynamics::Function,
                         inequalityConstraints, equalityConstraints, cost::Function,
-                        Vcuts, t::Int, x::Union{Array,Tuple})
+                        λ::Array, β::Array, numcuts::Int, t::Int, x::Union{Array,Tuple})
 
     m = Model(solver = solver)
 
     @variable(m, u_bounds[i][2] <= u[i=1:u_dim] <= u_bounds[i][2] )
-    @variable(m, alpha[1:sampling_size])
+    @variable(m, α[1:sampling_size])
     @variable(m, x_bounds[i][2] <= xf[1:sampling_size, i=1:u_dim] <= x_bounds[i][2] )
 
     for iw in 1:sampling_size
@@ -420,12 +420,12 @@ function linear_program_dh(sampling_size::Int, samples::Array,
             @constraint(m, get(inequalityConstraints)(t, x, u, w) .<= 0)
         end
 
-        for k in 1:Vcuts.numCuts
-            @constraint(m, Vcuts.betas[k] + dot(lambda[k,:], xf[iw,:]) <= alpha[iw,:])
+        for k in 1:numCuts
+            @constraint(m, β[k] + dot(λ[k,:], xf[iw,:]) <= α[iw,:])
         end
     end
 
-    @objective(m, Min, sum(probas[iw]*(cost(t, x, u, samples[iw]) + alpha[iw]) for iw in 1:sampling_size))
+    @objective(m, Min, sum(probas[iw]*(cost(t, x, u, samples[iw]) + α[iw]) for iw in 1:sampling_size))
 
     solve(m)
 
@@ -440,12 +440,12 @@ function linear_program_hd(sampling_size::Int, samples::Array,
                         probas::Array, u_bounds::Array, x_bounds::Array,
                         x_steps::Array, x_dim::Int, dynamics::Function,
                         inequalityConstraints, equalityConstraints, cost::Function,
-                        Vcuts, t::Int, x::Union{Array,Tuple})
+                        λ::Array, β::Array, numcuts::Int, t::Int, x::Union{Array,Tuple})
 
     m = Model(solver = solver)
 
     @variable(m, u_bounds[i][2] <= u[1:sampling_size, i=1:u_dim] <= u_bounds[i][2] )
-    @variable(m, alpha[1:sampling_size])
+    @variable(m, α[1:sampling_size])
     @variable(m, x_bounds[i][2] <= xf[1:sampling_size, i=1:u_dim] <= x_bounds[i][2] )
 
     for iw in 1:sampling_size
@@ -460,12 +460,12 @@ function linear_program_hd(sampling_size::Int, samples::Array,
             @constraint(m, get(inequalityConstraints)(t, x, u[iw,:], w) .<= 0)
         end
 
-        for k in 1:Vcuts.numCuts
-            @constraint(m, Vcuts.betas[k] + dot(lambda[k,:], xf[iw,:]) <= alpha[iw,:])
+        for k in 1:numCuts
+            @constraint(m, β[k] + dot(λ[k,:], xf[iw,:]) <= α[iw,:])
         end
     end
 
-    @objective(m, Min, sum(probas[iw]*(cost(t, x, u[iw,:], samples[iw]) + alpha[iw]) for iw in 1:sampling_size))
+    @objective(m, Min, sum(probas[iw]*(cost(t, x, u[iw,:], samples[iw]) + α[iw]) for iw in 1:sampling_size))
 
     solve(m)
 
