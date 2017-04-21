@@ -141,7 +141,7 @@ function init_problem()
 
     x_bounds = [(0, 100)]
     u_bounds = [(0, 7), (0, 7)]
-    model = StochDynamicProgramming.LinearSPModel(N_STAGES,
+    model = StochDynamicProgramming.StochDynModel(N_STAGES,
                                                   u_bounds,
                                                   x0,
                                                   cost_t,

@@ -38,7 +38,7 @@ using StochDynamicProgramming, Base.Test, Clp
     x0 = [10.]
     u_bounds = [(0., 7.), (0., Inf)]
 
-    model_ef = StochDynamicProgramming.LinearSPModel(n_stages, u_bounds,
+    model_ef = StochDynamicProgramming.StochDynModel(n_stages, u_bounds,
                                                         x0, cost, dynamic, laws)
     x_bounds_ef = [(0, 100)]
     set_state_bounds(model_ef, x_bounds_ef)

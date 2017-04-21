@@ -50,7 +50,7 @@ using Base.Test
                                                    prune_cuts=0)
 
     V = nothing
-    model = StochDynamicProgramming.LinearSPModel(n_stages, u_bounds,
+    model = StochDynamicProgramming.StochDynModel(n_stages, u_bounds,
                                                   x0, cost, dynamic, laws)
 
     set_state_bounds(model, x_bounds)
@@ -143,7 +143,7 @@ using Base.Test
 
     @testset "Piecewise linear cost" begin
         # Test Piecewise linear costs:
-        model = StochDynamicProgramming.LinearSPModel(n_stages,
+        model = StochDynamicProgramming.StochDynModel(n_stages,
                                                       u_bounds, x0,
                                                       [cost],
                                                       dynamic, laws)
@@ -154,7 +154,7 @@ using Base.Test
     @testset "SMIP" begin
         controlCat = [:Bin, :Cont]
         u_bounds = [(0., 1.), (0., Inf)]
-        model2 = StochDynamicProgramming.LinearSPModel(n_stages,
+        model2 = StochDynamicProgramming.StochDynModel(n_stages,
                                                       u_bounds, x0,
                                                       cost,
                                                       dynamic, laws,
@@ -243,7 +243,7 @@ end
     V = nothing
     @testset "Linear cost" begin
         # Instantiate a SDDP linear model:
-        model = StochDynamicProgramming.LinearSPModel(n_stages,
+        model = StochDynamicProgramming.StochDynModel(n_stages,
                                                       u_bounds, x0,
                                                       cost,
                                                       dynamic, laws)
