@@ -31,6 +31,10 @@ function value_bspline_interpolation( dim_states::Int, V::Union{SharedArray, Arr
     return interpolate(V[[Colon() for i in 1:dim_states]...,time], BSpline(Linear()), OnGrid())
 end
 
+function value_linear_interpolation( dim_states::Int, V::Union{SharedArray, Array}, time::Int)
+    Vcuts = PolyhedralFunction(dim_states)
+end
+
 
 """
 Compute the cartesian products of discretized state spaces
@@ -125,7 +129,7 @@ function solve_dp(model::SPModel, param::SdpParameters, display=0::Int64)
     return V
 end
 
-function build_cost_function(costFunctions::Union{Function, Array{Function}, PolyhedralFunction})
+function build_cost_function(costFunctions::Union{Nullable{Function},Function,Array{Function},PolyhedralFunction})
     if isa(costFunctions, Function)
         return costFunctions
     else
@@ -159,11 +163,11 @@ end
 
 function build_contraints_function(ineq_cons::Nullable{Function}, eq_cons::Nullable{Function})
     if !isnull(ineq_cons)&&!isnull(eq_cons)
-        return (t,x,u,w) -> (find(abs.(eq_cons(t,x,u,w)).>1e-10)==[])&&(find(eq_cons(t,x,u,w).>1e-10)==[])
+        return (t,x,u,w) -> (find(abs.(get(eq_cons)(t,x,u,w)).>1e-10)==[])&&(find(get(ineq_cons)(t,x,u,w).>1e-10)==[])
     elseif !isnull(ineq_cons)
-        return (t,x,u,w) -> (find(eq_cons(t,x,u,w).>1e-10)==[])
+        return (t,x,u,w) -> (find(get(ineq_cons)(t,x,u,w).>1e-10)==[])
     elseif !isnull(eq_cons)
-        return (t,x,u,w) -> (find(eq_cons(t,x,u,w).!=0)==[])
+        return (t,x,u,w) -> (find(get(eq_cons)(t,x,u,w).!=0)==[])
     else
         return (t,x,u,w) -> true
     end
@@ -212,7 +216,9 @@ function compute_value_functions_grid(model::SPModel,
 
     cost = build_cost_function(model.costFunctions)
 
-    fin_cost = build_final_cost_function(model.finalCost)
+    if !isnull(model.finalCost)
+        fin_cost = build_final_cost_function(get(model.finalCost))
+    end
 
     constraints = build_contraints_function(model.inequalityConstraints,
                                             model.equalityConstraints)

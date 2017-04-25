@@ -48,7 +48,7 @@ type StochDynModel <: SPModel
     dynamics::Function
     noises::Vector{NoiseLaw}
 
-    finalCost::Union{Function, PolyhedralFunction}
+    finalCost::Nullable{Union{Function, PolyhedralFunction}}
 
     controlCat::Vector{Symbol}
     equalityConstraints::Nullable{Function}
@@ -63,8 +63,8 @@ type StochDynModel <: SPModel
                            dynamic,            # dynamic
                            aleas;              # modelling of noises
                            Vfinal=nothing,     # final cost
-                           eqconstr=nothing,   # equality constraints
-                           ineqconstr=nothing, # inequality constraints
+                           eqconstr=Nullable{Function}(),   # equality constraints
+                           ineqconstr=Nullable{Function}(), # inequality constraints
                            control_cat=nothing,
                            xbounds = nothing) # category of controls
 
