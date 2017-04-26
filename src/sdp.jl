@@ -216,9 +216,7 @@ function compute_value_functions_grid(model::SPModel,
 
     cost = build_cost_function(model.costFunctions)
 
-    if !isnull(model.finalCost)
-        fin_cost = build_final_cost_function(get(model.finalCost))
-    end
+    fin_cost = build_final_cost_function(model.finalCost)
 
     constraints = build_contraints_function(model.inequalityConstraints,
                                             model.equalityConstraints)

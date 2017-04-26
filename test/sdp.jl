@@ -146,9 +146,9 @@ end
             V_sdp3 = StochDynamicProgramming.compute_value_functions_grid(modelSDP, paramsSDP, false);
             paramsSDP.infoStructure = "HD"
 
-            Vitp = StochDynamicProgramming.value_function_interpolation( modelSDP.dimStates, V_sdp, 1)
-            Vitp2 = StochDynamicProgramming.value_function_interpolation( modelSDP.dimStates, V_sdp2, 1)
-            Vitp3 = StochDynamicProgramming.value_function_interpolation( modelSDP.dimStates, V_sdp3, 1)
+            Vitp = StochDynamicProgramming.value_bspline_interpolation( modelSDP.dimStates, V_sdp, 1)
+            Vitp2 = StochDynamicProgramming.value_bspline_interpolation( modelSDP.dimStates, V_sdp2, 1)
+            Vitp3 = StochDynamicProgramming.value_bspline_interpolation( modelSDP.dimStates, V_sdp3, 1)
 
             v1 = Vitp[(1.1,1.1)...]
             v2 = Vitp2[(1.1,1.1)...]

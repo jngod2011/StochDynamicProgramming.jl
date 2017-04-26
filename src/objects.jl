@@ -48,7 +48,7 @@ type StochDynModel <: SPModel
     dynamics::Function
     noises::Vector{NoiseLaw}
 
-    finalCost::Nullable{Union{Function, PolyhedralFunction}}
+    finalCost::Union{Function, PolyhedralFunction}
 
     controlCat::Vector{Symbol}
     equalityConstraints::Nullable{Function}
