@@ -31,8 +31,10 @@ function value_bspline_interpolation( dim_states::Int, V::Union{SharedArray, Arr
     return interpolate(V[[Colon() for i in 1:dim_states]...,time], BSpline(Linear()), OnGrid())
 end
 
-function value_linear_interpolation( dim_states::Int, V::Union{SharedArray, Array}, time::Int)
-    Vcuts = PolyhedralFunction(dim_states)
+function convex_inner_approximation( dim_states::Int, V::Union{SharedArray, Array}, time::Int)
+    points = 0
+    values = 0
+    return points, values
 end
 
 

@@ -396,7 +396,7 @@ function exhaustive_search_hd_get_u(u_bounds::Array, x_bounds::Array,
     return optimal_u, best_V_x_w, admissible_u_w_count
 end
 
-function linear_program_dh(sampling_size::Int, samples::Array,
+function solve_outer_lp_dh(sampling_size::Int, samples::Array,
                         probas::Array, u_bounds::Array, x_bounds::Array,
                         x_steps::Array, x_dim::Int, dynamics::Function,
                         inequalityConstraints, equalityConstraints, cost::Function,
@@ -436,7 +436,7 @@ function linear_program_dh(sampling_size::Int, samples::Array,
     return expected_V, optimal_u
 end
 
-function linear_program_hd(sampling_size::Int, samples::Array,
+function solve_outer_lp_hd(sampling_size::Int, samples::Array,
                         probas::Array, u_bounds::Array, x_bounds::Array,
                         x_steps::Array, x_dim::Int, dynamics::Function,
                         inequalityConstraints, equalityConstraints, cost::Function,
@@ -466,6 +466,44 @@ function linear_program_hd(sampling_size::Int, samples::Array,
     end
 
     @objective(m, Min, sum(probas[iw]*(cost(t, x, u[iw,:], samples[iw]) + α[iw]) for iw in 1:sampling_size))
+
+    solve(m)
+
+    expected_V = getobjectivevalue(m)
+
+    return expected_V
+end
+
+function solve_inner_lp_hd(sampling_size::Int, samples::Array,
+                        probas::Array, u_bounds::Array, x_bounds::Array,
+                        x_steps::Array, x_dim::Int, dynamics::Function,
+                        inequalityConstraints, equalityConstraints, cost::Union{Function},
+                        points::Array, Vnext::Array, t::Int, x::Union{Array,Tuple})
+
+    num_points = length(points)
+
+    m = Model(solver = solver)
+
+    @variable(m, u_bounds[i][2] <= u[1:sampling_size, i=1:u_dim] <= u_bounds[i][2] )
+    @variable(m, α[num_points, 1:sampling_size] .>= 0 )
+    @variable(m, x_bounds[i][2] <= xf[1:sampling_size, i=1:u_dim] <= x_bounds[i][2] )
+
+    for iw in 1:sampling_size
+        w = samples[iw]
+        pw = probas[iw]
+
+        @constraints(m, sum(α[:, iw]) == 1)
+
+        @constraint(m, sum(α[i,iw].*points[i,:] for i in 1:num_points) .== dynamics(t,x,u[iw,:], w) )
+        if ~isnull(equalityConstraints)
+            @constraint(m, get(equalityConstraints)(t, x, u[iw,:], w) .== 0)
+        end
+        if ~isnull(inequalityConstraints)
+            @constraint(m, get(inequalityConstraints)(t, x, u[iw,:], w) .<= 0)
+        end
+    end
+
+    @objective(m, Min, sum(probas[iw]*(cost(t, x, u[iw,:], samples[iw]) + dot(α[:,iw],Vnext)) for iw in 1:sampling_size))
 
     solve(m)
 
