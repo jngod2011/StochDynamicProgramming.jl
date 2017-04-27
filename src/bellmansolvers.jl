@@ -32,7 +32,7 @@ value functions
 
 """
 function index_from_variable(variable::Union{Array,Tuple}, bounds::Array, variable_steps::Array)
-    return tuple([ 1 + floor(Int64,(1e-10+( variable[i] - bounds[i][1] )/ variable_steps[i] )) for i in 1:length(variable)]...)
+    return [ 1 + floor(Int64,(1e-10+( variable[i] - bounds[i][1] )/ variable_steps[i] )) for i in 1:length(variable)]
 end
 
 
@@ -55,7 +55,7 @@ value function
 
 """
 function real_index_from_variable(variable::Union{Array,Tuple}, bounds::Array, variable_steps::Array)
-    return tuple([1 + ( variable[i] - bounds[i][1] )/variable_steps[i] for i in 1:length(variable)]...)
+    return [1 + ( variable[i] - bounds[i][1] )/variable_steps[i] for i in 1:length(variable)]
 end
 
 """
@@ -130,12 +130,13 @@ hazard setting
     the optimal control
 
 """
-function exhaustive_search_dh(sampling_size::Int, samples::Array,
-                        probas::Array, u_bounds::Array, x_bounds::Array,
+function exhaustive_search_dh(samples::Array,
+                        probas::Array, x_bounds::Array,
                         x_steps::Array, x_dim::Int, product_controls::Array,
                         dynamics::Function, constraints::Function, cost::Function,
                         Vitp, t::Int, x::Union{Array,Tuple},
                         build_Ux::Nullable{Function} = Nullable{Function}())
+    sampling_size = length(probas)
     expected_V = Inf
     optimal_u = tuple()
     #Loop over controls
@@ -278,13 +279,13 @@ decision setting
     the value function V(x)
 
 """
-function exhaustive_search_hd(sampling_size::Int, samples::Array,
-                        probas::Array, u_bounds::Array, x_bounds::Array,
+function exhaustive_search_hd(samples::Array,
+                        probas::Array, x_bounds::Array,
                         x_steps::Array, x_dim::Int, product_controls::Array,
                         dynamics::Function, constraints::Function, cost::Function,
                         Vitp, t::Int, x::Union{Array,Tuple},
                         build_Ux::Nullable{Function} = Nullable{Function}())
-
+    sampling_size = length(probas)
     expected_V = 0.
     count_admissible_w = 0.
 
@@ -294,7 +295,7 @@ function exhaustive_search_hd(sampling_size::Int, samples::Array,
         w_sample = samples[:, w]
         proba = probas[w]
 
-        uopt, best_V_x_w, admissible_u_w_count = exhaustive_search_hd_get_u(u_bounds,
+        uopt, best_V_x_w, admissible_u_w_count = exhaustive_search_hd_get_u(
                                                             x_bounds, x_steps,
                                                             x_dim,
                                                             product_controls,
@@ -357,7 +358,7 @@ at state x at realization w in a hazard decision setting
 * `admissible_u_w_count::Int`:
     the number of admissible couples (u,w)
 """
-function exhaustive_search_hd_get_u(u_bounds::Array, x_bounds::Array,
+function exhaustive_search_hd_get_u(x_bounds::Array,
                         x_steps::Array, x_dim::Int, product_controls::Array,
                         dynamics::Function, constraints::Function, cost::Function,
                         Vitp, t::Int, x::Union{Array,Tuple}, w::Union{Array,Tuple},
@@ -396,11 +397,13 @@ function exhaustive_search_hd_get_u(u_bounds::Array, x_bounds::Array,
     return optimal_u, best_V_x_w, admissible_u_w_count
 end
 
-function solve_outer_lp_dh(sampling_size::Int, samples::Array,
+function solve_outer_lp_dh(samples::Array,
                         probas::Array, u_bounds::Array, x_bounds::Array,
                         x_steps::Array, x_dim::Int, dynamics::Function,
                         inequalityConstraints, equalityConstraints, cost::Function,
                         λ::Array, β::Array, numcuts::Int, t::Int, x::Union{Array,Tuple})
+
+    sampling_size = length(probas)
 
     m = Model(solver = solver)
 
@@ -436,7 +439,7 @@ function solve_outer_lp_dh(sampling_size::Int, samples::Array,
     return expected_V, optimal_u
 end
 
-function solve_outer_lp_hd(sampling_size::Int, samples::Array,
+function solve_outer_lp_hd(samples::Array,
                         probas::Array, u_bounds::Array, x_bounds::Array,
                         x_steps::Array, x_dim::Int, dynamics::Function,
                         inequalityConstraints, equalityConstraints, cost::Function,
@@ -474,25 +477,26 @@ function solve_outer_lp_hd(sampling_size::Int, samples::Array,
     return expected_V
 end
 
-function solve_inner_lp_hd(sampling_size::Int, samples::Array,
-                        probas::Array, u_bounds::Array, x_bounds::Array,
+function solve_inner_lp_hd(samples::Array, probas::Array, x_bounds::Array,
                         x_steps::Array, x_dim::Int, dynamics::Function,
                         inequalityConstraints, equalityConstraints, cost::Union{Function},
-                        points::Array, Vnext::Array, t::Int, x::Union{Array,Tuple})
+                        Vnext::Array, t::Int, x::Union{Array,Tuple})
 
-    num_points = length(points)
+    sampling_size = length(probas)
+
+    num_points = length(Vnext)
 
     m = Model(solver = solver)
 
     @variable(m, u_bounds[i][2] <= u[1:sampling_size, i=1:u_dim] <= u_bounds[i][2] )
-    @variable(m, α[num_points, 1:sampling_size] .>= 0 )
+    @variable(m, α[num_points, 1:sampling_size] >= 0 )
     @variable(m, x_bounds[i][2] <= xf[1:sampling_size, i=1:u_dim] <= x_bounds[i][2] )
 
     for iw in 1:sampling_size
         w = samples[iw]
         pw = probas[iw]
 
-        @constraints(m, sum(α[:, iw]) == 1)
+        @constraint(m, sum(α[:, iw]) == 1)
 
         @constraint(m, sum(α[i,iw].*points[i,:] for i in 1:num_points) .== dynamics(t,x,u[iw,:], w) )
         if ~isnull(equalityConstraints)

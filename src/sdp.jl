@@ -27,14 +27,12 @@ Compute interpolation of the value function at time t
     the interpolated value function (working as an array with float indexes)
 
 """
-function value_bspline_interpolation( dim_states::Int, V::Union{SharedArray, Array}, time::Int)
-    return interpolate(V[[Colon() for i in 1:dim_states]...,time], BSpline(Linear()), OnGrid())
+function value_bspline_interpolation(V::Union{SharedArray, Array}, time::Int)
+    return interpolate(V[fill(Colon(), ndims(V)-1)...,time], BSpline(Linear()), OnGrid())
 end
 
-function convex_inner_approximation( dim_states::Int, V::Union{SharedArray, Array}, time::Int)
-    points = 0
-    values = 0
-    return points, values
+function access_value_t(V::Union{SharedArray, Array}, time::Int)
+    return V[fill(Colon(), ndims(V)-1)...,time]
 end
 
 
@@ -179,10 +177,11 @@ function build_marginal_law(model, param, t)
     law = model.noises
 
     if (param.expectation_computation=="MonteCarlo")
-        return (param.monteCarloSize, [sampling(law,t) for i in 1:sampling_size],
+        sampling_size = param.monteCarloSize
+        return ([sampling(law,t) for i in 1:sampling_size],
                 (1/sampling_size)*ones(sampling_size))
     else
-        return (law[t].supportSize, law[t].support, law[t].proba)
+        return (law[t].support, law[t].proba)
     end
 end
 
@@ -209,7 +208,6 @@ function compute_value_functions_grid(model::SPModel,
 
     TF = model.stageNumber
 
-    u_bounds = model.ulim
     x_bounds = model.xlim
     x_steps = param.stateSteps
     x_dim = model.dimStates
@@ -237,7 +235,11 @@ function compute_value_functions_grid(model::SPModel,
     initialize_final_value!(fin_cost, product_states, x_bounds, x_steps, V)
 
     if param.infoStructure == "HD"
-        get_V_t_x = BellmanSolvers.exhaustive_search_hd
+        if isa(param, ExhaustiveSdpParameters)
+            get_V_t_x = BellmanSolvers.exhaustive_search_hd
+        else
+            get_V_t_x = BellmanSolvers.solve_inner_lp_hd
+        end
     else
         param.infoStructure == "DH" || warn("Information structure defaulted to DH")
         param.infoStructure = "DH"
@@ -257,15 +259,17 @@ function compute_value_functions_grid(model::SPModel,
 
         display == 0 || next!(p)
 
-        sampling_size, samples, probas = build_marginal_law(model, param, t)
+        samples, probas = build_marginal_law(model, param, t)
 
-        Vitp = value_bspline_interpolation(x_dim, V, t+1)
+        Vitp = value_bspline_interpolation(V, t+1)
+
+        #Vitp = access_value_t(V, t+1)
 
         @sync @parallel for indx in 1:length(product_states)
             x = product_states[indx]
             ind_x = BellmanSolvers.index_from_variable(x, x_bounds, x_steps)
-            V[ind_x..., t] = get_V_t_x(sampling_size, samples, probas,
-                                            u_bounds, x_bounds, x_steps, x_dim,
+            V[ind_x..., t] = get_V_t_x(samples, probas,
+                                            x_bounds, x_steps, x_dim,
                                             product_controls, dynamics,
                                             constraints, cost, Vitp, t,
                                             x, build_Ux)[1]
@@ -293,7 +297,7 @@ Get the optimal value of the problem from the optimal Bellman Function
 function get_bellman_value(model::SPModel, param::SdpParameters,
                             V::Union{SharedArray, Array})
     ind_x0 = BellmanSolvers.real_index_from_variable(model.initialState, model.xlim, param.stateSteps)
-    Vi = value_bspline_interpolation(model.dimStates, V, 1)
+    Vi = value_bspline_interpolation(V, 1)
     return Vi[ind_x0...,1]
 end
 
@@ -349,10 +353,10 @@ function get_control(model::SPModel,param::SdpParameters,
 
     end
 
-    push!(args, model.ulim, model.xlim, param.stateSteps,
+    push!(args, model.xlim, param.stateSteps,
             model.dimStates, generate_control_grid(model, param),
             dynamics, constraints, cost,
-            value_bspline_interpolation(model.dimStates, V, t+1), t, x)
+            value_bspline_interpolation(V, t+1), t, x)
 
     return get_u(args..., optional_args...)[1]
 end
@@ -409,7 +413,7 @@ function forward_simulations(model::SPModel,
     constraints = build_contraints_function(model.inequalityConstraints,
                                             model.equalityConstraints)
 
-    args = [model.ulim, model.xlim, param.stateSteps, x_dim,
+    args = [model.xlim, param.stateSteps, x_dim,
     generate_control_grid(model, param), dynamics, constraints,
     cost]
 
@@ -444,16 +448,15 @@ function forward_simulations(model::SPModel,
 
             x = states[t,s,:]
             w = current_scen[t,:]
-            args_t = [value_bspline_interpolation(x_dim, V, t+1), t, x]
+            args_t = [value_bspline_interpolation(V, t+1), t, x]
 
             if info == "DH"
                 if (param.expectation_computation=="MonteCarlo")
                     sampling_size = param.monteCarloSize
-                    push!(args_w,sampling_size,
-                            [sampling(law,t) for i in 1:sampling_size],
+                    push!(args_w, [sampling(law,t) for i in 1:sampling_size],
                             (1./sampling_size)*ones(sampling_size))
                 else
-                    push!(args_w,law[t].supportSize, law[t].support, law[t].proba)
+                    push!(args_w,law[t].support, law[t].proba)
                 end
             else
                 push!(args_t, w)
