@@ -485,14 +485,14 @@ function solve_inner_lp_hd(sampling_size::Int, samples::Array,
     m = Model(solver = solver)
 
     @variable(m, u_bounds[i][2] <= u[1:sampling_size, i=1:u_dim] <= u_bounds[i][2] )
-    @variable(m, α[num_points, 1:sampling_size] .>= 0 )
+    @variable(m, α[num_points, 1:sampling_size] >= 0 )
     @variable(m, x_bounds[i][2] <= xf[1:sampling_size, i=1:u_dim] <= x_bounds[i][2] )
 
     for iw in 1:sampling_size
         w = samples[iw]
         pw = probas[iw]
 
-        @constraints(m, sum(α[:, iw]) == 1)
+        @constraint(m, sum(α[:, iw]) == 1)
 
         @constraint(m, sum(α[i,iw].*points[i,:] for i in 1:num_points) .== dynamics(t,x,u[iw,:], w) )
         if ~isnull(equalityConstraints)

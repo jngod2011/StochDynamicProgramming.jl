@@ -261,15 +261,17 @@ function compute_value_functions_grid(model::SPModel,
 
         Vitp = value_bspline_interpolation(x_dim, V, t+1)
 
-        @sync @parallel for indx in 1:length(product_states)
-            x = product_states[indx]
+        function compute_V_t_x!(x)
             ind_x = BellmanSolvers.index_from_variable(x, x_bounds, x_steps)
-            V[ind_x..., t] = get_V_t_x(sampling_size, samples, probas,
-                                            u_bounds, x_bounds, x_steps, x_dim,
-                                            product_controls, dynamics,
-                                            constraints, cost, Vitp, t,
-                                            x, build_Ux)[1]
+            V[ind_x...,t] = get_V_t_x(sampling_size, samples, probas,
+                                        u_bounds, x_bounds, x_steps, x_dim,
+                                        product_controls, dynamics,
+                                        constraints, cost, Vitp, t,
+                                        x, build_Ux)[1]
+
         end
+
+        pmap(compute_V_t_x!, product_states)
 
     end
     return V
