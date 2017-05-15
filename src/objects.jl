@@ -23,8 +23,8 @@ PolyhedralFunction(ndim) = PolyhedralFunction([], Array{Float64}(0, ndim), 0)
 
 
 type LinearSPModel <: SPModel
-    # problem dimension
-    stageNumber::Int64
+    # problem dimensions
+    stageNumber::Int64 #number of information step + 1
     dimControls::Int64
     dimStates::Int64
     dimNoises::Int64

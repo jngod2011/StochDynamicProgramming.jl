@@ -130,7 +130,7 @@ function get_random_state(model::SPModel)
     end
     infinite_bound = false
     for i in 1:model.dimStates, j in 1:model.stageNumber
-        infinite_bound &= (isinf(model.xlim[i,j][2]) && isinf(model.xlim[i,j][1]))
+        infinite_bound |= (isinf(model.xlim[i,j][2]) || isinf(model.xlim[i,j][1]))
     end
     if infinite_bound
         error("Infinite state bounds")

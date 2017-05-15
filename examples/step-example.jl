@@ -24,7 +24,7 @@ const MAX_ITER = 2 # number of iterations of SDDP
 
 
 ######## Stochastic optimization problem parameters  ########
-const N_STAGES = 24             # number of stages of the SP problem
+const N_STAGES = 25             # number of stages of the SP problem
 
 const CONTROL_MAX = 5           # upper bound on the control
 const CONTROL_MIN = -5           # lower bound on the control
@@ -134,7 +134,7 @@ function Intraday_Dual(q)
     paramSDDP = SDDPparameters(SOLVER,
                                passnumber=10,
                                max_iterations=MAX_ITER,
-                               verbose=10)
+                               verbose=1)
     V, pbs = solve_SDDP(spmodel_d, paramSDDP, 5)
     lb_sddp = StochDynamicProgramming.get_lower_bound(spmodel_d, paramSDDP, V)
     return lb_sddp

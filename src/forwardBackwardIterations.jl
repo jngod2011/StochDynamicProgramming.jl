@@ -177,7 +177,7 @@ Add to polyhedral function a cut with shape Vt >= beta + <lambda,.>
 function add_cut!(model::SPModel,
     t::Int64, Vt::PolyhedralFunction,
     beta::Float64, lambda::Vector{Float64})
-    param.verbose > 4 && println("adding cut to polyhedral function at time t=",t)
+    #param.verbose > 4 && println("adding cut to polyhedral function at time t=",t)
     Vt.lambdas = vcat(Vt.lambdas, reshape(lambda, 1, model.dimStates))
     Vt.betas = vcat(Vt.betas, beta)
     Vt.numCuts += 1
@@ -201,7 +201,7 @@ Add a cut to the JuMP linear problem.
 """
 function add_cut_to_model!(model::SPModel, problem::JuMP.Model,
                             t::Int64, beta::Float64, lambda::Vector{Float64})
-    param.verbose > 4 && println("adding cut to model at time t=",t)
+    #param.verbose > 4 && println("adding cut to model at time t=",t)
     alpha = getvariable(problem, :alpha)
     x = getvariable(problem, :x)
     u = getvariable(problem, :u)
@@ -287,7 +287,7 @@ function backward_pass!(model::SPModel,
                 end
             end
 
-            # We add cuts only if one solution was being found:
+            # We add cuts only if one solution was found:
             if sum(proba) > 0
                 # Scale probability (useful when some problems are infeasible):
                 proba /= sum(proba)
