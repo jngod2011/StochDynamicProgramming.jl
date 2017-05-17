@@ -25,14 +25,14 @@ using Base.Test
     end
     # define cost:
     function cost(t, x, u, w)
-        return -u[1]
+        return -u[1]*w[2]
     end
 
     # Generate probability laws:
     laws = Vector{NoiseLaw}(n_stages)
     proba = 1/n_aleas*ones(n_aleas)
     for t=1:n_stages
-        laws[t] = NoiseLaw([0, 1, 3, 4, 6], proba)
+        laws[t] = NoiseLaw([0 1; 1 2; 3 1; 4 2; 6 1]', proba)#
     end
 
     # set initial position:

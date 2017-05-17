@@ -142,6 +142,8 @@ function forward_simulations(model::SPModel,
             end
             push!(solvertime, ts)
 
+            push!(solvetime_lp, sts)
+
             # Check if the problem is effectively solved:
             if sol.status
                 # Get the next position:
@@ -213,6 +215,7 @@ Add a cut to the JuMP linear problem.
 """
 function add_cut_to_model!(model::SPModel, problem::JuMP.Model,
                             t::Int64, beta::Float64, lambda::Vector{Float64})
+    #param.verbose > 4 && println("adding cut to model at time t=",t)
     alpha = getvariable(problem, :alpha)
     xf = getvariable(problem, :xf)
     @constraint(problem, beta + dot(lambda, xf) <= alpha)

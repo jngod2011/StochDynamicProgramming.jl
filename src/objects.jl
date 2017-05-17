@@ -31,15 +31,15 @@ function fetchnewcuts!(V::PolyhedralFunction)
 end
 
 type LinearSPModel <: SPModel
-    # problem dimension
-    stageNumber::Int64
+    # problem dimensions
+    stageNumber::Int64 #number of information step + 1
     dimControls::Int64
     dimStates::Int64
     dimNoises::Int64
 
-    # Bounds of states and controls:
-    xlim::Array{Tuple{Float64,Float64},1}
-    ulim::Array{Tuple{Float64,Float64},1}
+    # Bounds of states and controls (state and control are in column)
+    xlim::Array{Tuple{Float64,Float64},2}
+    ulim::Array{Tuple{Float64,Float64},2}
 
     initialState::Array{Float64, 1}
 
@@ -57,12 +57,13 @@ type LinearSPModel <: SPModel
 
     IS_SMIP::Bool
 
-    function LinearSPModel(nstage,             # number of stages
-                           ubounds,            # bounds of control
+    function LinearSPModel(n_stage,             # number of stages
+                           u_bounds,            # bounds of control
                            x0,                 # initial state
                            cost,               # cost function
                            dynamic,            # dynamic
                            aleas;              # modelling of noises
+                           x_bounds =nothing,
                            Vfinal=nothing,     # final cost
                            eqconstr=nothing,   # equality constraints
                            ineqconstr=nothing, # inequality constraints
@@ -70,8 +71,8 @@ type LinearSPModel <: SPModel
                            control_cat=nothing) # category of controls
 
         dimStates = length(x0)
-        dimControls = length(ubounds)
-        dimNoises = length(aleas[1].support[:, 1])
+        dimControls = size(u_bounds,1)
+        dimNoises =    aleas[1].dimNoises #length(aleas[1].support[:, 1])
 
         # First step: process terminal costs.
         # If not specified, default value is null function
@@ -84,20 +85,43 @@ type LinearSPModel <: SPModel
         isbu = isa(control_cat, Vector{Symbol})? control_cat: [:Cont for i in 1:dimControls]
         is_smip = (:Int in isbu)||(:Bin in isbu)
 
-        xbounds = [(-Inf, Inf) for i=1:dimStates]
+        if x_bounds == nothing
+            x_bounds = repmat([(-Inf,Inf)],dimStates,n_stage)
 
-        return new(nstage, dimControls, dimStates, dimNoises, xbounds, ubounds,
+#            x_bounds = Array{Tuple{Float64,Float64},2}(dimStates,stageNumber)
+#            for i in 1:dimStatesrepmat([(-Inf,Inf)],3,4)
+#                for t in 1:stageNumber
+#                    x_bounds[i,t] = (-Inf, Inf)
+#                end
+#            end
+        end
+        ulim = test_and_reshape_bounds(u_bounds, dimControls,n_stage, "Controls")
+
+        return new(nstage, dimControls, dimStates, dimNoises, xbounds, ulim,
                    x0, cost, dynamic, aleas, Vf, isbu, eqconstr, ineqconstr, info, is_smip)
     end
 end
 
 
+
 """Set bounds on state."""
-function set_state_bounds(model::SPModel, xbounds)
-    if length(xbounds) != model.dimStates
-        error("Bounds dimension, must be ", model.dimStates)
+function set_state_bounds(model::SPModel, x_bounds)
+    nx = model.dimStates
+    ns = model.stageNumber
+    model.xlim = test_and_reshape_bounds(x_bounds, nx,ns, "State")
+end
+
+""" Checking state and control bounds and duplicating if needed
+
+If bounds is a vector of length nx (or nx*1 array) duplicate to a matrix nx*ns,
+if already a matrix keep it this way, else return an error"""
+function test_and_reshape_bounds(bounds, nx,ns, variable)
+    if (ndims(bounds) == 1 && length(bounds) == nx)||(ndims(bounds) == 2 && size(bounds) == (nx,1))
+        return repmat(bounds,1,ns)
+    elseif ndims(bounds) == 2 && size(bounds) == (nx,ns)
+        return bounds
     else
-        model.xlim = xbounds
+        error(variable, " bounds dimension should be ", nx," or (",nx,",",ns,")")
     end
 end
 
@@ -110,8 +134,8 @@ type StochDynProgModel <: SPModel
     dimNoises::Int64
 
     # Bounds of states and controls:
-    xlim::Array{Tuple{Float64,Float64},1}
-    ulim::Array{Tuple{Float64,Float64},1}
+    xlim::Array{Tuple{Float64,Float64},2}
+    ulim::Array{Tuple{Float64,Float64},2}
 
     initialState::Array{Float64, 1}
 
@@ -136,6 +160,7 @@ type StochDynProgModel <: SPModel
             return current_cost
             end
         end
+
         return StochDynProgModel(model.stageNumber, model.xlim, model.ulim, model.initialState,
                  cost, final, model.dynamics, cons,
                  model.noises)
@@ -245,6 +270,8 @@ Update the SDDPStat object with the results of current iterations.
 function updateSDDPStat!(stats::SDDPStat,
                          lwb::Float64,
                          upb::Vector{Float64},
+                         toc_fw,
+                         toc_bw,
                          time)
     stats.niterations += 1
     push!(stats.lower_bounds, lwb)

@@ -9,7 +9,6 @@
 
 """ Contruct the scenario tree and solve the problem with
 measurability constraints.
-
 # Arguments:
 * `model::SPModel`
 * `param::SDDPparameters`
@@ -110,4 +109,3 @@ function extensive_formulation(model, param; verbose=0)
         error("Extensive formulation not solved to optimality. Change the model")
     end
 end
-

@@ -296,9 +296,9 @@ function build_model(model, param, t)
     nw = model.dimNoises
 
     # define variables in JuMP:
-    @variable(m,  model.xlim[i][1] <= x[i=1:nx] <= model.xlim[i][2])
-    @variable(m,  model.xlim[i][1] <= xf[i=1:nx]<= model.xlim[i][2])
-    @variable(m,  model.ulim[i][1] <= u[i=1:nu] <=  model.ulim[i][2])
+    @variable(m,  model.xlim[i,t][1] <= x[i=1:nx] <= model.xlim[i,t][2])
+    @variable(m,  model.xlim[i,t][1] <= xf[i=1:nx]<= model.xlim[i,t][2])
+    @variable(m,  model.ulim[i,t][1] <= u[i=1:nu] <=  model.ulim[i,t][2])
     @variable(m, alpha)
 
     @variable(m, w[1:nw] == 0)
@@ -316,12 +316,12 @@ function build_model(model, param, t)
 
     # Define objective function (could be linear or piecewise linear)
     if isa(model.costFunctions, Function)
-        try
+        #try
             @objective(m, Min, model.costFunctions(t, x, u, w) + alpha)
-        catch
+        #catch
             #FIXME: hacky redefinition of costs as JuMP Model
-            @objective(m, Min, model.costFunctions(m, t, x, u, w) + alpha)
-        end
+        #    @objective(m, Min, model.costFunctions(m, t, x, u, w) + alpha)
+        #end
 
     elseif isa(model.costFunctions, Vector{Function})
         @variable(m, cost)
@@ -336,7 +336,10 @@ function build_model(model, param, t)
     if model.IS_SMIP
         m.colCat[2*nx+1:2*nx+nu] = model.controlCat
     end
-
+    if param.verbose > 3
+        println("initial model built at time t=",t)
+        print(m)
+    end
     return m
 end
 
@@ -402,7 +405,7 @@ This function add the fist cut to each PolyhedralFunction stored in a Array
 """
 function initialize_value_functions(model::SPModel,
                                     param::SDDPparameters)
-
+    if param.verbose > 1 println("Initialize value functions") end
     solverProblems = build_models(model, param)
     V = getemptyvaluefunctions(model)
 

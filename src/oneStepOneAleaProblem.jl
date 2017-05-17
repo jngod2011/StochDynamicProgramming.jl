@@ -52,6 +52,7 @@ function solve_one_step_one_alea(model,
                                  relaxation=false::Bool,
                                  init=false::Bool)
     # Get var defined in JuMP.model:
+    x = getvariable(m, :x)
     u = getvariable(m, :u)
     w = getvariable(m, :w)
     alpha = getvariable(m, :alpha)
@@ -61,18 +62,42 @@ function solve_one_step_one_alea(model,
         JuMP.fix(w[ii], xi[ii])
     end
 
+
+    #update objective
+    if isa(model.costFunctions, Function)
+        try
+            @objective(m, Min, model.costFunctions(t, x, u, xi) + alpha)
+        catch
+            #FIXME: hacky redefinition of costs as JuMP Model
+            @objective(m, Min, model.costFunctions(m, t, x, u, xi) + alpha)
+        end
+
+    elseif isa(model.costFunctions, Vector{Function})
+        cost = getvariable(m, :cost)
+        for i in 1:length(model.costFunctions)
+            @constraint(m, cost >= model.costFunctions[i](t, x, u, xi))
+        end
+        @objective(m, Min, cost + alpha)
+    end
+
     # Update constraint x == xt
     for i in 1:model.dimStates
         JuMP.setRHS(m.ext[:cons][i], xt[i])
     end
-
+    if param.verbose > 5
+        println("One step one alea problem at time t=",t)
+        println("for x =",xt)
+        println("and w=",xi)
+        print(m)
+    end
     if model.IS_SMIP
         solved = relaxation ? solve_relaxed!(m, param): solve_mip!(m, param)
     else
-        status = solve(m, suppress_warnings=true)
+        status = solve(m, suppress_warnings=false)
         solved = (status == :Optimal)
     end
 
+    # get time taken by the solver:
     solvetime = try getsolvetime(m) catch 0 end
 
     if solved
