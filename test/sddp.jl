@@ -129,7 +129,7 @@ using Base.Test
                                                     gap=epsilon,
                                                     max_iterations=max_iterations)
 
-         solve_SDDP(model, param2, 0, regularization=SDDPRegularization(1., .99))
+         # solve_SDDP(model, param2, 0, regularization=SDDPRegularization(1., .99))
     end
 
     # Test definition of final cost with a JuMP.Model:
