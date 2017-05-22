@@ -1,25 +1,26 @@
 #############################################################################
-# Test SDDP upon damsvalley with quadratic final cost
+# Solve a hydro-electric dam valley problem where each dam outflow is an inflow
+# of the next dam with additional quadratic final cost
+#
+# This example have two features :
+# -- multidimensional stock
+# -- final quadratic costs
 #############################################################################
-
 ##################################################
 # Set a seed for reproductability:
 srand(2713)
 
 using StochDynamicProgramming, JuMP
+using Clp
 
-include("solver.jl")
+SOLVER = ClpSolver()
 ##################################################
-
-
 ##################################################
 # PROBLEM DEFINITION
 ##################################################
-# We consider here a valley with 5 dams:
-const N_DAMS = 5
-
-const N_STAGES = 12
-const N_ALEAS = 10
+const N_DAMS = 5    # number of dams in the valley
+const N_STAGES = 12 # number of stages in the problem
+const N_ALEAS = 10  # discretization of alea
 
 # Cost are negative as we sell the electricity produced by
 # dams (and we want to minimize our problem)
@@ -32,20 +33,26 @@ const VOLUME_MIN = 0
 const CONTROL_MAX = 40
 const CONTROL_MIN = 0
 
-# Define initial status of stocks:
+# Define initial value of stocks:
 const X0 = [40 for i in 1:N_DAMS]
 
 # Dynamic of stocks:
-const A = eye(N_DAMS)
+
 # The problem has the following structure:
-# dam1 -> dam2 -> dam3 -> dam4 -> dam5
+# dam1 -> dam2 -> dam3 -> ... -> dam N
 # We need to define the corresponding dynamic:
-const B =  [-1  0.  0.  0.  0.  -1  0.  0.  0.  0.;
-            1.  -1  0.  0.  0.  1.  -1  0.  0.  0.;
-            0.  1.  -1  0.  0.  0.  1.  -1  0.  0.;
-            0.  0.  1.  -1  0.  0.  0.  1.  -1  0.;
-            0.  0.  0.  1.  -1  0.  0.  0.  1.  -1]
-# Define dynamic of the dam:
+Bu = zeros(N_DAMS,N_DAMS)
+for i in 1:N_DAMS
+     Bu[i,i]= -1
+end
+for i in 1:N_DAMS-1
+     Bu[i+1,i]= 1
+end
+const B = [Bu Bu]
+const A = eye(N_DAMS)
+# Define dynamic of the dam: x_{t+1}=Ax_t + Bu_t + w_t
+# here u_t = [u_turbined u_spilled], where u_spilled is not valorized
+# for each dam we thus have x_{t+1}^i = x_t^i - (u_turbined^i + u_spilled^i) + (u_turbined^{i+1} + u_spilled^{i+1})
 function dynamic(t, x, u, w)
     return A*x + B*u + w
 end
@@ -57,7 +64,7 @@ end
 
 # We define here final cost a quadratic problem
 # we penalize the final costs if it is greater than 40.
-function final_cost_dams(model, m)
+function final_cost_dams!(model, m)
     # Here, model is the optimization problem at time T - 1
     # so that xf (x future) is the final stock
     alpha = JuMP.getvariable(m, :alpha)
@@ -65,18 +72,10 @@ function final_cost_dams(model, m)
     x = JuMP.getvariable(m, :x)
     u = JuMP.getvariable(m, :u)
     xf = JuMP.getvariable(m, :xf)
-    @JuMP.variable(m, z1 >= 0)
-    @JuMP.variable(m, z2 >= 0)
-    @JuMP.variable(m, z3 >= 0)
-    @JuMP.variable(m, z4 >= 0)
-    @JuMP.variable(m, z5 >= 0)
-    @JuMP.constraint(m, alpha == 0.)
-    @JuMP.constraint(m, z1 >= 40 - xf[1])
-    @JuMP.constraint(m, z2 >= 40 - xf[2])
-    @JuMP.constraint(m, z3 >= 40 - xf[3])
-    @JuMP.constraint(m, z4 >= 40 - xf[4])
-    @JuMP.constraint(m, z5 >= 40 - xf[5])
-    @JuMP.objective(m, Min, model.costFunctions(model.stageNumber-1, x, u, w) + 500.*(z1*z1+z2*z2+z3*z3+z4*z4+z5*z5))
+    @variable(m,z[1:N_DAMS] >= 0)
+    @constraint(m, alpha == 0.) #FIXME justify
+    @constraint(m, z + xf .>= 40)
+    @objective(m, Min, model.costFunctions(model.stageNumber-1, x, u, w) + 500.*sum(xf[i]*xf[i] for i=1:N_DAMS))
 end
 
 ##################################################
@@ -95,7 +94,6 @@ function generate_probability_laws()
     laws = Vector{NoiseLaw}(N_STAGES-1)
     # uniform probabilities:
     proba = 1/N_ALEAS*ones(N_ALEAS)
-
     for t=1:N_STAGES-1
         support = rand(0:9, N_DAMS, N_ALEAS)
         laws[t] = NoiseLaw(support, proba)
@@ -112,15 +110,12 @@ function init_problem()
     model = LinearSPModel(N_STAGES, u_bounds,
                           X0, cost_t,
                           dynamic, aleas,
-                          Vfinal=final_cost_dams)
+                          Vfinal=final_cost_dams!)
 
     # Add bounds for stocks:
     set_state_bounds(model, x_bounds)
 
-    # We need to use CPLEX to solve QP at final stages:
-    solver = SOLVER
-
-    params = SDDPparameters(solver,
+    params = SDDPparameters(SOLVER,
                             passnumber=FORWARD_PASS,
                             compute_ub=10,
                             gap=EPSILON,
@@ -130,5 +125,4 @@ end
 
 # Solve the problem:
 model, params = init_problem()
-sddp = @time solve_SDDP(model, params, 1)
-
+sddp = @time solve_SDDP(model, params, 2)

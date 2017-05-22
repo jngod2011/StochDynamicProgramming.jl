@@ -1,9 +1,9 @@
-
+# example showing how parallelization could be implemented
 import StochDynamicProgramming
 
 
 """
-Solve SDDP in parallel, dispatching both forward and backward passes to process, 
+Solve SDDP in parallel, dispatching both forward and backward passes to process,
 which is not the most standard parallelization of SDDP.
 
 # Arguments

@@ -57,7 +57,7 @@ end
 ######## Setting up the SPmodel
 s_bounds = [(0, 1)]
 u_bounds = [(CONTROL_MIN, CONTROL_MAX)]
-spmodel = LinearDynamicLinearCostSPmodel(N_STAGES, u_bounds, [S0], cost_t, dynamic, xi_laws)
+spmodel = LinearSPModel(N_STAGES, u_bounds, [S0], cost_t, dynamic, xi_laws)
 set_state_bounds(spmodel, s_bounds)
 
 
@@ -65,8 +65,8 @@ set_state_bounds(spmodel, s_bounds)
 scenarios = StochDynamicProgramming.simulate_scenarios(xi_laws, 1000)
 
 ######## Define different scenarios
-paramSDDP1 = SDDPparameters(SOLVER, 4, 0, MAX_ITER) #forwardpassnumber, sensibility
-paramSDDP2 = SDDPparameters(SOLVER, 10, 0, 2)
+paramSDDP1 = SDDPparameters(SOLVER, passnumber = 4, gap = 0, max_iterations = MAX_ITER) #forwardpassnumber, sensibility
+paramSDDP2 = SDDPparameters(SOLVER, passnumber = 4, gap = 0, max_iterations = MAX_ITER)
 
 ######## Define parameters collection
 paramSDDP = [paramSDDP1 for i in 1:4]

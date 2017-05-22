@@ -3,8 +3,7 @@
 #  License, v. 2.0. If a copy of the MPL was not distributed with this
 #  file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #############################################################################
-#  Compare the optimal values and control returned by different instances
-#  of SDDP on the same problem
+#  Compare the computation time and gap obtained with different SDDP parameters value
 #############################################################################
 
 """

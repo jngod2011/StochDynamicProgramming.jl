@@ -3,14 +3,14 @@
 #  License, v. 2.0. If a copy of the MPL was not distributed with this
 #  file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #############################################################################
-# Display SDDP simulations with matplotlib
+# Show examples of display function using matplotlib
 #############################################################################
 
 # WARNING: Matplotlib and PyCall must be installed!
 using PyPlot
 
 """
-Display evolution of stocks. 
+Display evolution of stocks.
 
 Parameters:
 - model (SPModel)
@@ -36,7 +36,7 @@ end
 
 
 """
-Display evolution of controls. 
+Display evolution of controls.
 
 Parameters:
 - model (SPModel)
@@ -62,7 +62,7 @@ end
 
 
 """
-Display costs distribution along scenarios. 
+Display costs distribution along scenarios.
 
 Parameters:
 - costs (Vector{Float64})
@@ -77,7 +77,7 @@ end
 
 
 """
-Display distributions of aleas along time. 
+Display distributions of aleas along time.
 
 Parameters:
 - aleas (Array{Float64, 3})
@@ -141,7 +141,7 @@ end
 
 
 """
-Display results of SDDP simulation. 
+Display results of SDDP simulation.
 
 """
 function display_all(model, costs, stocks, controls, aleas)
@@ -149,4 +149,3 @@ function display_all(model, costs, stocks, controls, aleas)
     display_controls(model, controls)
     display_stocks(model, stocks)
 end
-

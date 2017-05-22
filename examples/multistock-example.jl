@@ -83,8 +83,7 @@ if run_sddp
     paramSDDP = SDDPparameters(SOLVER,
                                passnumber=10,
                                max_iterations=MAX_ITER)
-    sddp = solve_SDDP(spmodel, paramSDDP, 2,  # display information every 2 iterations
-                      stopcrit=StochasticDualDynamicProgramming.IterLimit(MAX_ITER))
+    sddp = solve_SDDP(spmodel, paramSDDP, 2)
     lb_sddp = StochDynamicProgramming.get_lower_bound(spmodel, paramSDDP, sddp.bellmanfunctions)
     println("Lower bound obtained by SDDP: "*string(round(lb_sddp,4)))
     toc(); println();
@@ -117,4 +116,3 @@ if run_sddp && run_sdp && test_simulation
     println("Simulated relative gain of sddp over sdp: "
             *string(round(200*mean(costsdp-costsddp)/abs(mean(costsddp+costsdp)),3))*"%")
 end
-

@@ -128,9 +128,8 @@ using Base.Test
                                                     passnumber=n_scenarios,
                                                     gap=epsilon,
                                                     max_iterations=max_iterations)
-        #TODO: fix solver, as Clp cannot solve QP
-        #@test_throws ErrorException solve_SDDP(model, param2, 0,
-        #                                       regularization=SDDPRegularization(1., .99))
+
+         solve_SDDP(model, param2, 0, regularization=SDDPRegularization(1., .99))
     end
 
     # Test definition of final cost with a JuMP.Model:
@@ -299,4 +298,3 @@ end
         @test V[1].lambdas == Vdump[1].lambdas
     end
 end
-
